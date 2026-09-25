@@ -1,0 +1,2422 @@
+<meta charset="utf-8">
+<title>Become Studio Floor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&family=Silkscreen&display=swap">
+<style>
+  :root{
+    color-scheme: dark;
+    --ink:#161926; --frame:#1f2336; --panel:#262b44; --panel-2:#2e3452; --line:#3b4266;
+    --paper:#f7efdc; --paper-ink:#2e2530;
+    --text:#eef0f8; --muted:#a4aaca;
+    --gold:#ffcf4a; --green:#6bd18a; --blue:#5fb4e8; --pink:#f29cb6; --violet:#b69cf0;
+    --grey:#8d93b0; --dim:#5b607c; --red:#ef6b6b;
+    --display:"Silkscreen", ui-monospace, "Courier New", monospace;
+    --body:"Pixelify Sans", ui-rounded, system-ui, sans-serif;
+  }
+  [hidden]{display:none!important}
+  html,body{height:100%}
+  body{background:var(--ink);color:var(--text);font-family:var(--body);font-size:15px;line-height:1.35;display:flex;flex-direction:column;padding-inline:16px;padding-block:12px;box-sizing:border-box;gap:12px;overflow:hidden}
+  *{box-sizing:border-box}
+  button{font:inherit;color:inherit;cursor:pointer}
+  button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+  .px{background:var(--panel);box-shadow:0 0 0 2px var(--line), 4px 4px 0 2px #0b0d15}
+
+  /* HUD */
+  .hud{display:flex;align-items:center;gap:14px 20px;flex-wrap:wrap;padding:10px 14px}
+  .brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+  .logo{font-family:var(--display);font-size:20px;letter-spacing:.02em;color:var(--paper)}
+  .logo sup{font-size:.55em;color:var(--gold)}
+  .brand .sub{color:var(--muted);font-size:13px;letter-spacing:.06em;text-transform:uppercase}
+  .clock{display:flex;align-items:baseline;gap:8px;font-variant-numeric:tabular-nums}
+  .clock b{font-family:var(--display);font-size:18px;color:var(--gold);font-weight:400}
+  .clock span{color:var(--muted);font-size:13px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;background:var(--panel-2);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .chip i{width:8px;height:8px;display:inline-block}
+  .chip b{font-weight:600}
+  .src{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+  .src .dot{width:8px;height:8px;background:var(--grey)}
+  .src.live .dot{background:var(--green);animation:blink 1.6s steps(2) infinite}
+  .src.demo .dot{background:var(--gold)}
+  .src.err .dot{background:var(--red)}
+  @keyframes blink{50%{opacity:.25}}
+
+  /* stage */
+  .stage{flex:1;min-height:0;display:flex;gap:14px}
+  .viewport{position:relative;flex:1;min-width:0;background:#10121c;overflow:hidden;touch-action:none}
+  canvas{display:block;width:100%;height:100%;cursor:grab;image-rendering:pixelated}
+  canvas.dragging{cursor:grabbing}
+  .controls{position:absolute;right:10px;top:10px;display:flex;gap:6px}
+  .controls button{background:var(--panel);box-shadow:0 0 0 2px var(--line), 2px 2px 0 2px #0b0d15;border:0;padding:4px 9px;font-family:var(--display);font-size:12px;min-width:30px}
+  .controls button[aria-pressed="true"]{background:var(--gold);color:var(--paper-ink)}
+
+  .banner{position:absolute;left:10px;top:10px;right:170px;max-width:520px;padding:10px 12px;background:var(--paper);color:var(--paper-ink);box-shadow:0 0 0 2px var(--paper-ink), 3px 3px 0 2px #0b0d15;font-size:14px;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+  .banner p{margin:0;flex:1 1 240px}
+  .banner button{background:var(--paper-ink);color:var(--paper);border:0;padding:4px 10px;font-size:13px}
+
+  .tip{position:absolute;pointer-events:none;background:var(--paper);color:var(--paper-ink);padding:6px 8px;font-size:13px;box-shadow:0 0 0 2px var(--paper-ink);max-width:240px;z-index:3}
+  .tip b{display:block;font-weight:600}
+
+  .card{position:absolute;left:10px;bottom:96px;width:min(300px, calc(100% - 20px));background:var(--paper);color:var(--paper-ink);box-shadow:0 0 0 2px var(--paper-ink), 4px 4px 0 2px #0b0d15;padding:12px 14px;display:flex;flex-direction:column;gap:6px;z-index:2}
+  .card h3{margin:0;font-family:var(--display);font-size:16px;font-weight:400;padding-right:24px}
+  .card .role{font-size:13px;color:#6a5e66;margin-top:-4px}
+  .card .row{display:flex;gap:8px;font-size:14px}
+  .card .row span:first-child{color:#7c707a;width:62px;flex:none}
+  .card .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+  .card .act{font:inherit;font-size:13px;padding:5px 10px;border:0;cursor:pointer;text-decoration:none;background:var(--paper-ink);color:var(--paper);display:inline-flex;align-items:center;gap:6px}
+  .card .act.ghost{background:transparent;color:var(--paper-ink);box-shadow:inset 0 0 0 2px var(--paper-ink)}
+  .card .act[disabled]{opacity:.6;cursor:default}
+  .card .act:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .card .note{font-size:12px;color:#6a5e66;margin:0}
+  .card .x{position:absolute;right:8px;top:6px;background:none;border:0;font-family:var(--display);font-size:14px;color:var(--paper-ink)}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;font-size:13px;color:#1b1c26;align-self:flex-start}
+
+  /* side panel */
+  .panel{width:290px;flex:none;display:flex;flex-direction:column;min-height:0}
+  .panel header{padding:12px 14px 8px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .panel h2{margin:0;font-family:var(--display);font-size:14px;font-weight:400;letter-spacing:.04em}
+  .panel header span{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .list{overflow:auto;padding:0 8px 12px;display:flex;flex-direction:column;gap:10px}
+  .group h4{margin:0 6px 4px;font-size:12px;font-weight:400;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:flex;gap:6px;align-items:center}
+  .group h4 i{width:8px;height:8px;display:inline-block}
+  .person{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:none;border:0;padding:5px 6px}
+  .person:hover,.person[aria-current="true"]{background:var(--panel-2)}
+  .person .av{width:22px;height:22px;flex:none;image-rendering:pixelated}
+  .person .nm{flex:1;min-width:0}
+  .person .nm b{display:block;font-weight:400;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .person .nm small{display:block;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .person .t{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+  /* 24h scrubber */
+  .scrub{position:absolute;left:10px;right:10px;bottom:10px;z-index:2;display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--panel);box-shadow:0 0 0 2px var(--line), 3px 3px 0 2px #0b0d15}
+  .scrub button{flex:none;border:0;background:var(--panel-2);box-shadow:0 0 0 2px var(--line);font-family:var(--display);font-size:12px;padding:5px 9px}
+  .scrub button#play{width:34px}
+  .scrub button#live[aria-pressed="true"]{background:var(--green);color:#10301b}
+  .track{position:relative;flex:1;min-width:120px;height:40px}
+  .sky{position:absolute;left:0;right:0;top:4px;height:14px;background:linear-gradient(90deg,#0d1030 0%,#0d1030 20%,#5a3a78 25%,#f0a070 29%,#9fd3ef 36%,#c9ecfa 50%,#9fd3ef 66%,#f09050 72.5%,#6a3f7a 77%,#151a45 81%,#0d1030 100%);box-shadow:0 0 0 2px #0b0d15}
+  .future{position:absolute;top:4px;height:14px;right:0;pointer-events:none;background:repeating-linear-gradient(135deg, rgba(10,11,20,.55) 0 3px, rgba(10,11,20,.25) 3px 6px)}
+  .marks{position:absolute;left:0;right:0;top:4px;height:14px;pointer-events:none}
+  .marks i{position:absolute;top:0;width:2px;height:14px;background:rgba(107,209,138,.95)}
+  .marks i.o{background:rgba(242,156,182,.9);height:8px;top:6px}
+  .hours{position:absolute;left:0;right:0;top:22px;height:14px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;pointer-events:none}
+  .hours span{position:absolute;transform:translateX(-50%)}
+  .nowmark{position:absolute;top:0;width:2px;height:22px;background:var(--gold);pointer-events:none}
+  .track input{position:absolute;inset:0;width:100%;height:24px;margin:0;background:transparent;-webkit-appearance:none;appearance:none;cursor:ew-resize}
+  .track input::-webkit-slider-runnable-track{height:24px;background:transparent}
+  .track input::-moz-range-track{height:24px;background:transparent}
+  .track input::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:24px;background:var(--paper);box-shadow:0 0 0 2px #2e2530;border:0}
+  .track input::-moz-range-thumb{width:10px;height:24px;background:var(--paper);box-shadow:0 0 0 2px #2e2530;border:0;border-radius:0}
+  .track input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .readout{display:flex;flex-direction:column;min-width:190px;gap:1px}
+  .readout b{font-family:var(--display);font-weight:400;font-size:15px;color:var(--gold);font-variant-numeric:tabular-nums}
+  .readout span{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px}
+  @media (max-width: 640px){ .scrub{flex-wrap:wrap} .track{flex-basis:100%;order:3} .readout{flex:1} }
+
+  /* Studio TV */
+  .tvwrap{position:fixed;inset:0;z-index:20;background:rgba(10,11,20,.78);display:flex;align-items:center;justify-content:center;padding:16px}
+  .tv{width:min(920px,100%);background:#1b1d29;padding:18px 18px 12px;box-shadow:0 0 0 3px #3b4266, 0 0 0 6px #0b0d15, 8px 8px 0 6px #07080e;display:flex;flex-direction:column;gap:10px}
+  .tv-screen{--bg:#262b44;--ink:#eef0f8;--acc:#ffcf4a;position:relative;aspect-ratio:16/9;max-height:calc(100vh - 150px);width:100%;background:var(--bg);color:var(--ink);overflow:hidden;box-shadow:inset 0 0 0 3px rgba(0,0,0,.25);transition:background .35s steps(3)}
+  .tv-screen::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg, rgba(0,0,0,.06) 0 2px, transparent 2px 4px)}
+  .tv-screen[data-type="kudos"]{--bg:#ffcf4a;--ink:#2e2530;--acc:#2e2530}
+  .tv-screen[data-type="launch"]{--bg:#5fb4e8;--ink:#0f2238;--acc:#0f2238}
+  .tv-screen[data-type="win"]{--bg:#6bd18a;--ink:#10301b;--acc:#10301b}
+  .tv-screen[data-type="milestone"]{--bg:#f29cb6;--ink:#3a1424;--acc:#3a1424}
+  .tv-screen[data-type="welcome"]{--bg:#b69cf0;--ink:#231545;--acc:#231545}
+  .tv-screen[data-type="news"]{--bg:#f7efdc;--ink:#2e2530;--acc:#c85a40}
+  .slide{position:absolute;inset:0;padding:clamp(18px,4.5%,44px);display:flex;flex-direction:column;gap:clamp(8px,1.6vw,16px);animation:slideIn .45s steps(4)}
+  @keyframes slideIn{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+  .slide .kicker{font-family:var(--display);font-size:clamp(11px,1.5vw,15px);letter-spacing:.08em;display:flex;align-items:center;gap:10px}
+  .slide .kicker b{font-weight:400;background:var(--ink);color:var(--bg);padding:3px 8px}
+  .slide h2{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(20px,4vw,42px);line-height:1.08;text-wrap:balance;max-width:22ch}
+  .slide .body{margin:0;font-size:clamp(14px,1.9vw,21px);line-height:1.35;max-width:60ch;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+  .slide .by{margin-top:auto;font-size:clamp(12px,1.5vw,16px);opacity:.8;display:flex;gap:14px;flex-wrap:wrap}
+  .slide .icon{position:absolute;right:clamp(14px,4%,40px);top:clamp(12px,4%,36px);font-size:clamp(34px,7vw,78px);line-height:1}
+  .slide .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;max-width:760px}
+  .slide .stat{background:rgba(255,255,255,.07);padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+  .slide .stat b{font-family:var(--display);font-weight:400;font-size:clamp(20px,3.2vw,34px);color:var(--acc);font-variant-numeric:tabular-nums}
+  .slide .stat span{font-size:clamp(12px,1.4vw,15px);opacity:.85}
+  .tv-bar{position:absolute;left:0;right:0;bottom:0;height:5px;background:rgba(0,0,0,.18)}
+  .tv-bar i{display:block;height:100%;width:0;background:var(--ink)}
+  .tv-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .tv-controls .brandline{font-family:var(--display);font-size:12px;color:var(--muted);letter-spacing:.06em;margin-right:auto}
+  .tv-controls span#tvCount{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:52px;text-align:center}
+  .tv-controls button{background:var(--panel);box-shadow:0 0 0 2px var(--line);border:0;padding:4px 10px;font-family:var(--display);font-size:11px}
+  .tv-controls button:hover{background:var(--panel-2)}
+  .tvwrap:fullscreen{background:#07080e;padding:0}
+  .tvwrap:fullscreen .tv{width:100%;height:100%;box-shadow:none;padding:0;background:#07080e}
+  .tvwrap:fullscreen .tv-screen{max-height:none;flex:1;aspect-ratio:auto}
+  .tvwrap:fullscreen .tv-controls{padding:6px 12px}
+  @media (prefers-reduced-motion: reduce){ .slide{animation:none} .tv-screen{transition:none} }
+  @media (max-width: 860px){
+    body{overflow:auto;height:auto;min-height:100%}
+    .stage{flex-direction:column}
+    .viewport{flex:none;height:min(62vh,520px)}
+    .panel{width:auto}
+    .list{overflow:visible}
+    .chips{margin-left:0}
+    .banner{right:10px}
+    .controls{top:auto;bottom:96px}
+    .scrub .readout{min-width:0}
+  }
+  @media (prefers-reduced-motion: reduce){ .src.live .dot{animation:none} }
+</style>
+
+<header class="hud px">
+  <div class="brand"><span class="logo">become<sup>®</sup></span><span class="sub">Studio floor</span></div>
+  <div class="clock"><b id="clock">--:--</b><span id="date"></span><span>IST</span></div>
+  <div class="src" id="src"><span class="dot"></span><span id="srcText">Connecting to Slack…</span></div>
+  <div class="chips" id="chips"></div>
+</header>
+
+<main class="stage">
+  <div class="viewport px" id="vp">
+    <canvas id="cv" aria-label="Top-down pixel map of the Become studio showing where each team member is right now"></canvas>
+    <div class="controls">
+      <button id="zOut" aria-label="Zoom out">−</button>
+      <button id="zIn" aria-label="Zoom in">+</button>
+      <button id="zFit" aria-label="Fit office to screen">FIT</button>
+      <button id="soundBtn" aria-pressed="false" aria-label="Office sound">♪ SOUND</button>
+      <button id="tvBtn" aria-label="Open the studio TV">TV</button>
+      <button id="names" aria-pressed="false">NAMES</button>
+      <button id="proj" aria-pressed="false" title="Show what everyone is working on">PROJECTS</button>
+    </div>
+    <div class="banner" id="banner" hidden></div>
+    <div class="tip" id="tip" hidden></div>
+    <div class="card" id="card" hidden></div>
+    <div class="scrub" id="scrub">
+      <button id="play" aria-label="Replay today">▶</button>
+      <div class="track">
+        <div class="sky"></div><div class="future" id="future"></div><div class="marks" id="marks"></div><i class="nowmark" id="nowmark"></i>
+        <div class="hours"><span style="left:0%;transform:none">00</span><span style="left:25%">06</span><span style="left:50%">12</span><span style="left:75%">18</span><span style="left:100%;transform:translateX(-100%)">24</span></div>
+        <input type="range" id="time" min="0" max="1439" step="1" value="0" aria-label="Time of day. Drag to replay today.">
+      </div>
+      <div class="readout"><b id="scrubTime">LIVE</b><span id="recap">Drag the bar to replay today</span></div>
+      <button id="live" aria-pressed="true">LIVE</button>
+    </div>
+  </div>
+  <aside class="panel px" aria-label="Team list">
+    <header><h2>TEAM</h2><span id="teamCount"></span></header>
+    <div class="list" id="list"></div>
+  </aside>
+</main>
+
+<div class="tvwrap" id="tv" hidden role="dialog" aria-modal="true" aria-label="Studio TV">
+  <div class="tv">
+    <div class="tv-screen" id="tvScreen" data-type="today" aria-live="polite">
+      <div class="tv-bar"><i id="tvBar"></i></div>
+    </div>
+    <div class="tv-controls">
+      <span class="brandline">BECOME® STUDIO TV</span>
+      <button id="tvPrev" aria-label="Previous slide">◀ PREV</button>
+      <span id="tvCount">1 / 1</span>
+      <button id="tvNext" aria-label="Next slide">NEXT ▶</button>
+      <button id="tvPause" aria-pressed="false">PAUSE</button>
+      <button id="tvFull">FULL SCREEN</button>
+      <button id="tvClose" aria-label="Close the TV">CLOSE ✕</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+/* ---------------- Team roster (from Slack) — desks assigned in this order ---------------- */
+const ROSTER = [
+  ["U09US6G61V4","Achuthan",""],
+  ["U0A7L4VS1PS","Adithi","Junior Verbal Strategist"],
+  ["U05E5KBAT26","Afri","Assoc. Brand Designer"],
+  ["U093E411EUQ","Akshaya Natarajan",""],
+  ["U05UDFQ1Z7A","Arun Sandeep","Assoc. Digital Strategist"],
+  ["U07F37E4S12","Arun Thangavel","Founding Team – Frontrunner"],
+  ["ULVHUR56Y","AV the Monk",""],
+  ["U06CGR4RPGV","Gautham",""],
+  ["U08VA01T7UZ","Gayathri Srinivasan","Market Research Analyst"],
+  ["U08AU3DM092","Gokul","Product Design"],
+  ["UB05U84LX","Harish Venkatesh","Founder & CEO"],
+  ["USH087NMD","Indhu Kanth","Creative Director + Lead, Research"],
+  ["U09US6FJHAA","Induja S","Client Partner | Account Manager"],
+  ["U05F5TWC59B","Juhi","Growth"],
+  ["U099E481108","Kajol Vakharia","Client Partner | Creative Project Manager"],
+  ["U0ACYVBJBS5","Mo",""],
+  ["U02MCTN385A","Pooja",""],
+  ["U099E4897GQ","Pooja Raghu","Marketing & Content"],
+  ["U099E470LM6","Praveen Kumar",""],
+  ["U0A6NCL2FJR","Preetam Raaj",""],
+  ["U022F2W0HHP","Preksha","Associate Digital Strategist"],
+  ["U08DHB3TTFX","Prity Dhara","Webflow Developer"],
+  ["U0145T9FDH8","Samshritha","Lead, Communication Strategy & Design"],
+  ["U01CN2WA1T2","Samuel",""],
+  ["U09ECQP5KDK","Shruti Ramnath","Graphic Designer"],
+  ["U09US6GF20N","Soham","Brand & Type Designer"],
+];
+const SLACK = "Slack";
+const CH_ATTENDANCE = "C01HXH115DH";  // #_attendance (Brisk jibble in/out)
+const CH_LEAVES = "C0AC150KC5P";      // #_leaves (Brisk leave approvals)
+const CH_GENERAL = "CAYDCHHGQ";       // #_general (news, kudos, launches)
+
+/* ---------------- State vocabulary ---------------- */
+const STATES = {
+  desk:   {label:"At desk",        color:"#6bd18a", group:"In studio"},
+  focus:  {label:"Heads down",     color:"#ffcf4a", group:"In studio"},
+  remote: {label:"Working remote", color:"#b69cf0", group:"In studio"},
+  meet:   {label:"On a call",      color:"#5fb4e8", group:"In a meeting"},
+  away:   {label:"Away from desk", color:"#f29cb6", group:"Away from desk"},
+  out:    {label:"Checked out",    color:"#8d93b0", group:"Checked out"},
+  leave:  {label:"On leave",       color:"#5b607c", group:"On leave"},
+  notin:  {label:"Not in yet",     color:"#454a66", group:"Not checked in"},
+  loading:{label:"Connecting…",    color:"#454a66", group:"Connecting"},
+};
+const GROUP_ORDER = ["In studio","In a meeting","Away from desk","Checked out","On leave","Not checked in","Connecting"];
+const GROUP_COLOR = {"In studio":"#6bd18a","In a meeting":"#5fb4e8","Away from desk":"#f29cb6","Checked out":"#8d93b0","On leave":"#5b607c","Not checked in":"#454a66","Connecting":"#454a66"};
+
+/* ---------------- World geometry ---------------- */
+// West: garden wrapped round the pantry + library room. Centre: the work hall. East: pods, boardroom, lounge.
+// South, full width: the beach and the sea.
+const T = 16, MW = 60, BH = 38, MH = 50, WW = MW*T, WH = MH*T, BHP = BH*T;   // BH = building rows; the beach fills rows 38–49
+const ROOM = {x0: 5, x1: 17, y0: 8, y1: 30};          // pantry (top) + library (bottom), walls on these tile lines
+const HALL = {x0: 17, x1: 40};                          // work hall between the room wall and the east divider
+const SEA_Y = 46*T;                                     // where the water starts
+const TV_RECT = {x: 18*T + 2, y: 21.5*T, w: 3*T + 8, h: 2*T + 4};
+const P = (tx, ty) => ({x: tx*T, y: ty*T});
+
+// Desks: 8 clusters of 4, in four rows
+const CLUSTERS = [];
+for (const cy of [5, 13, 21, 29]) for (const cx of [24, 32]) CLUSTERS.push({cx, cy});
+const DESKS = [];
+CLUSTERS.forEach((cl, ci) => {
+  const {cx, cy} = cl;
+  [[0,"top"],[2,"top"],[0,"bot"],[2,"bot"]].forEach(([ox, side], k) => {
+    const dx = (cx+ox)*T;
+    const d = {n: DESKS.length+1, ci, side, dx, cy,
+      rowY: side==="top" ? cy*T : (cy+1)*T,
+      seat: side==="top"
+        ? {x: dx+T, y: cy*T+2, face:"down", seated:true, pool:"desk"}
+        : {x: dx+T, y: (cy+2)*T+10, face:"up", seated:true, pool:"desk"}};
+    d.region = side==="top" ? {x:dx, y:(cy-1)*T, w:2*T, h:2*T} : {x:dx, y:(cy+1)*T, w:2*T, h:2*T};
+    DESKS.push(d);
+  });
+});
+
+const PODS = [42, 46, 50, 54];
+const MEET_SEATS = [];
+PODS.forEach((px, i) => {
+  MEET_SEATS.push({x: px*T+10, y: 5*T+2, face:"up", seated:true, pool:"meet", where:`Meet pod ${i+1}`});
+  MEET_SEATS.push({x: px*T+38, y: 5*T+2, face:"up", seated:true, pool:"meet", where:`Meet pod ${i+1}`});
+});
+for (const tx of [47.5, 49.5, 51.5]) MEET_SEATS.push({x: tx*T, y: 9*T+2, face:"down", seated:true, pool:"meet", where:"Boardroom"});
+for (const tx of [47.5, 49.5, 51.5]) MEET_SEATS.push({x: tx*T, y: 11*T+10, face:"up", seated:true, pool:"meet", where:"Boardroom"});
+MEET_SEATS.push({x: 45*T+4, y: 10*T+6, face:"down", seated:true, pool:"meet", where:"Boardroom"});
+MEET_SEATS.push({x: 54*T-4, y: 10*T+6, face:"down", seated:true, pool:"meet", where:"Boardroom"});
+
+const AWAY_SEATS = [];
+for (const ox of [16, 40, 64]) AWAY_SEATS.push({x: 45*T+ox, y: 21*T-1, face:"down", seated:true, pool:"away", where:"Lounge sofa"});
+for (const ox of [16, 40, 64]) AWAY_SEATS.push({x: 45*T+ox, y: 26*T+6, face:"up", seated:true, pool:"away", where:"Lounge sofa"});
+AWAY_SEATS.push({x: 52*T+12, y: 22*T+4, face:"down", seated:true, pool:"away", where:"Lounge armchair"});
+AWAY_SEATS.push({x: 52*T+12, y: 24*T+12, face:"down", seated:true, pool:"away", where:"Lounge armchair"});
+const BEANS = [[9*T+8, 23*T+10, "#f2a93b"], [12*T+8, 24*T+12, "#6cc07a"], [10*T+8, 26*T+12, "#e05a5a"], [14*T+8, 26*T+10, "#5fb4e8"]];
+for (const [x, y] of BEANS) AWAY_SEATS.push({x, y, face:"down", seated:true, pool:"away", where:"Library beanbag"});
+AWAY_SEATS.push({x: 9.5*T, y: 12*T+14, face:"down", seated:true, pool:"away", where:"Pantry"});
+AWAY_SEATS.push({x: 12.5*T, y: 12*T+14, face:"down", seated:true, pool:"away", where:"Pantry"});
+AWAY_SEATS.push({x: 9.5*T, y: 15*T+6, face:"up", seated:true, pool:"away", where:"Pantry"});
+AWAY_SEATS.push({x: 12.5*T, y: 15*T+6, face:"up", seated:true, pool:"away", where:"Pantry"});
+for (const tx of [8, 11, 14]) AWAY_SEATS.push({x: tx*T, y: 11*T+4, face:"up", seated:false, pool:"away", where:"Pantry counter"});
+
+const ENTRANCE = {x: 58.6*T, y: 31*T};   // the lounge's front door, on the east wall
+
+/* ---------------- Routing ---------------- */
+// Zones joined by doors; people walk the aisles inside a zone and pass through doors between zones.
+function zoneOf(x, y){
+  if (y >= 37.6*T) return "beach";
+  if (x < HALL.x0*T + 8) return (x > ROOM.x0*T + 8 && y > ROOM.y0*T + 8 && y < ROOM.y1*T + 8) ? "room" : "garden";
+  if (x < 40.5*T) return "work";
+  return y < 15.5*T ? "meet" : "lounge";
+}
+const DOOR_LIST = [
+  {a:"work",   pa:{x:18.8*T, y:19*T},   b:"room",   pb:{x:15.6*T, y:19*T}},     // hall → pantry/library
+  {a:"room",   pa:{x:6.6*T,  y:19*T},   b:"garden", pb:{x:3.9*T,  y:19*T}},     // the middle door to the garden
+  {a:"work",   pa:{x:39*T,   y:10*T},   b:"meet",   pb:{x:42*T,   y:10*T}},
+  {a:"work",   pa:{x:39*T,   y:26*T},   b:"lounge", pb:{x:42*T,   y:26*T}},
+  {a:"work",   pa:{x:30*T,   y:35.4*T}, b:"beach",  pb:{x:30*T,   y:40*T}},     // back door onto the boardwalk
+  {a:"garden", pa:{x:9*T,    y:35.6*T}, b:"beach",  pb:{x:9*T,    y:40*T}},     // garden gate to the sand
+];
+const nearest = (arr, v) => arr.reduce((a, b) => Math.abs(b-v) < Math.abs(a-v) ? b : a);
+function grid(rows, cols, a, b){
+  const ra = nearest(rows, a.y), rb = nearest(rows, b.y);
+  if (ra === rb) return [{x:a.x, y:ra}, {x:b.x, y:rb}, b];
+  const col = nearest(cols, (a.x+b.x)/2);
+  return [{x:a.x, y:ra}, {x:col, y:ra}, {x:col, y:rb}, {x:b.x, y:rb}, b];
+}
+const WORK_ROWS = [3*T, 10*T, 18*T, 26*T, 34*T], WORK_COLS = [22.6*T, 30*T, 38*T];
+const GARDEN_ROWS = [6.6*T, 19*T, 31.5*T], GARDEN_COLS = [3.9*T];
+const LOUNGE_ROWS = [17*T, 31*T], LOUNGE_COLS = [41.8*T, 57.6*T];
+function inner(zone, a, b){
+  if (zone === "work") return grid(WORK_ROWS, WORK_COLS, a, b);
+  if (zone === "garden") return grid(GARDEN_ROWS, GARDEN_COLS, a, b);
+  if (zone === "lounge") return grid(LOUNGE_ROWS, LOUNGE_COLS, a, b);
+  const row = zone === "meet" ? 6.5*T : zone === "room" ? 19*T : 40*T;   // beach: along the boardwalk
+  return [{x:a.x, y:row}, {x:b.x, y:row}, b];
+}
+function zonePath(za, zb){
+  const prev = {[za]: null}, q = [za];
+  while (q.length){
+    const z = q.shift(); if (z === zb) break;
+    for (const d of DOOR_LIST){
+      const [from, to, pf, pt] = d.a === z ? [d.a, d.b, d.pa, d.pb] : d.b === z ? [d.b, d.a, d.pb, d.pa] : [];
+      if (!from || to in prev) continue;
+      prev[to] = {z, pf, pt}; q.push(to);
+    }
+  }
+  const steps = []; for (let z = zb; prev[z]; z = prev[z].z) steps.unshift(prev[z]);
+  return steps;
+}
+function route(a, b){
+  const za = zoneOf(a.x, a.y), zb = zoneOf(b.x, b.y);
+  if (za === zb) return inner(za, a, b);
+  let pts = [], cur = a, zc = za;
+  for (const st of zonePath(za, zb)){ pts = pts.concat(inner(zc, cur, st.pf), [st.pt]); cur = st.pt; zc = zoneOf(st.pt.x, st.pt.y); }
+  return pts.concat(inner(zb, cur, b));
+}
+
+/* ---------------- Looks ---------------- */
+function hash(s){ let h = 2166136261; for (let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+const SKINS = ["#f0c29b","#dca47a","#c28a5e","#a8704a","#8a5a3a"];
+const HAIRS = ["#1c1a20","#2b211c","#3d2a20","#171720","#4b3526","#2a2432"];
+const SHIRTS = ["#e05a5a","#f2a93b","#4f9ed9","#6cc07a","#9b7fd1","#f07ab0","#3fb8b0","#f5d54a","#ebe5d6","#5a6b8c","#d9744a","#8ab04a"];
+const PANTS = ["#2e3348","#3c4a6b","#4b3a2f","#35363f"];
+function lookFor(id){
+  const h = hash(id);
+  return {skin: SKINS[h % SKINS.length], hair: HAIRS[(h>>>3) % HAIRS.length], shirt: SHIRTS[(h>>>6) % SHIRTS.length],
+          pants: PANTS[(h>>>10) % PANTS.length], long: ((h>>>13) & 3) === 0 || ((h>>>13)&3)===1 && (h>>>16)%2===0, glasses: ((h>>>18) % 5) === 0};
+}
+function shade(hex, f){
+  const n = parseInt(hex.slice(1), 16); let r = n>>16, g = (n>>8)&255, b = n&255;
+  r = Math.max(0, Math.min(255, Math.round(r*f))); g = Math.max(0, Math.min(255, Math.round(g*f))); b = Math.max(0, Math.min(255, Math.round(b*f)));
+  return "#" + ((1<<24) + (r<<16) + (g<<8) + b).toString(16).slice(1);
+}
+
+const people = ROSTER.map(([id, name, role], i) => ({
+  id, name, role, i, desk: DESKS[i], look: lookFor(id), phase: hash(id) % 997,
+  state: "loading", seat: null, pos: null, path: [], visible: false, leaving: false,
+  checkin: null, checkout: null, statusText: "", statusEmoji: "", project: "", projects: [], lastMsg: null,
+}));
+const byId = Object.fromEntries(people.map(p => [p.id, p]));
+
+/* ---------------- Static office layer ---------------- */
+const stat = document.createElement("canvas"); stat.width = WW; stat.height = WH;
+const HALL_PLANTS = [[18.7*T, 3*T+10, 1], [38.6*T, 3*T+12, 0], [18.7*T, 16*T+6, 0], [18.7*T, 34*T+4, 1], [38.6*T, 35*T+6, 0],
+                     [57.6*T, 8*T+8, 1], [57.6*T, 13*T+6, 0], [57.6*T, 17*T+4, 0], [42*T, 36*T+6, 1], [16.2*T, 21*T+2, 0]];
+function drawStatic(){
+  const c = stat.getContext("2d");
+  const R = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+  R(0, 0, WW, WH, "#2a2230");
+  drawLawn(c);
+
+  // Work hall: warm planks
+  const planks = (fx, fy, fw, fh, base, line, joint) => {
+    R(fx, fy, fw, fh, base);
+    for (let y = fy, row = 0; y < fy+fh; y += 5, row++){
+      R(fx, y+4, fw, 1, line);
+      const off = (row*23) % 40;
+      for (let x = fx + off; x < fx+fw; x += 40) R(x, y, 1, 4, joint);
+    }
+  };
+  planks(17*T, 2*T, 24*T, 35*T, "#dfa76b", "#c98f55", "#cf9459");
+  // Pantry + library room: lighter planks, pantry tiles, library rug
+  planks(6*T, 9*T, 11*T, 21*T, "#e7b67d", "#d19f66", "#d7a56c");
+  for (let y = 9*T; y < 18.4*T - 4; y += 8) for (let x = 6*T; x < 17*T; x += 8) R(x, y, 8, 8, ((x+y)/8)%2 ? "#efe9dc" : "#d7cfbf");
+  R(8*T, 21*T, 8*T, 6.6*T, "#5f7fbf"); R(8*T+3, 21*T+3, 8*T-6, 6.6*T-6, "#6f8fcf");
+  for (let x = 8*T+8; x < 16*T-4; x += 12) R(x, 21*T+6, 4, 6.6*T-12, "#7b9bd8");
+
+  // East side floors
+  R(41*T, 2*T, 18*T, 14*T, "#e6dfd1");
+  for (let y = 2*T; y < 15*T; y += 16) R(41*T, y, 18*T, 1, "#d6cebd");
+  for (let x = 41*T; x < 59*T; x += 16) R(x, 2*T, 1, 13*T, "#d6cebd");
+  R(43*T, 7*T, 13*T, 7*T, "#aab8cc");
+  for (let i = 0; i < 90; i++){ const h = hash("c"+i); R(43*T + h % (13*T), 7*T + (h>>>8) % (7*T), 1, 1, "#98a8bf"); }
+  R(41*T, 16*T, 18*T, 21*T, "#c68b56");
+  for (let y = 16*T; y < 37*T; y += 5) R(41*T, y+4, 18*T, 1, "#b27a47");
+  R(44*T, 19*T, 11*T, 9*T, "#c85a40"); R(44*T+3, 19*T+3, 11*T-6, 9*T-6, "#e27d60");
+  for (let y = 19*T+8; y < 28*T-6; y += 10) for (let x = 44*T+8; x < 55*T-6; x += 10) R(x, y, 3, 3, "#f09a7a");
+
+  // Walls
+  const wallV = (tx, from, to, gaps = [], glass = []) => { for (let ty = from; ty < to; ty++){ if (gaps.includes(ty)) continue; R(tx*T+3, ty*T, T-6, T, "#6d5746"); R(tx*T+3, ty*T, 2, T, "#8a735f"); if (glass.includes(ty)){ R(tx*T+5, ty*T+2, T-10, T-4, "#8cc7de"); R(tx*T+6, ty*T+3, 1, T-8, "#d8f0f8"); } } };
+  const wallH = (ty, from, to, gaps = []) => { for (let tx = from; tx < to; tx++){ if (gaps.includes(tx)) continue; R(tx*T, ty*T+3, T, T-6, "#6d5746"); R(tx*T, ty*T+3, T, 2, "#8a735f"); } };
+  // top wall of the hall and east side, with windows
+  R(17*T, 0, 43*T, T, "#5e4a3b");
+  R(17*T, T, 43*T, T, "#f1e7d4"); R(17*T, 2*T-3, 43*T, 3, "#c7b598");
+  for (const x of [35.5, 44, 52]){ R(x*T, T+2, 2*T, T-6, "#7a6755"); R(x*T+2, T+4, 2*T-4, T-10, "#9fd6ec"); R(x*T+4, T+5, 6, 2, "#dff4fb"); R(x*T+T-1, T+4, 2, T-10, "#7a6755"); }
+  R(19*T, T+2, 4*T, T-6, "#8a8f9c"); R(19*T+2, T+3, 4*T-4, T-9, "#fbfbf8");                // whiteboard
+  const scrib = ["#e05a5a","#4f9ed9","#3a3a3a","#6cc07a"];
+  for (let i = 0; i < 9; i++) R(19*T+6 + i*6, T+6 + (i%3)*2, 4, 1, scrib[i%4]);
+  R(27*T, T+3, 6*T, T-8, "#2a2230");                                                        // sign
+  R(17*T, 0, 4, 2*T, "#4b3a2e");
+  // hall's west wall: windows onto the garden, the room wall in between with the middle door
+  wallV(17, 2, 37, [18, 19], [3, 4, 5, 6, 31, 32, 33, 34, 35]);
+  // the room: top wall with windows, a thin west wall with the garden door, bottom wall
+  R(5*T, 7.5*T, 12.7*T, 0.5*T, "#5e4a3b"); R(5*T, 8*T, 12.7*T, T, "#f1e7d4"); R(5*T, 9*T-3, 12.7*T, 3, "#c7b598");
+  for (const x of [6.2, 14.6]){ R(x*T, 8*T+2, 2*T, T-6, "#7a6755"); R(x*T+2, 8*T+4, 2*T-4, T-10, "#9fd6ec"); R(x*T+4, 8*T+5, 6, 2, "#dff4fb"); }
+  R(5*T, 18*T, T, 2*T, "#e7b67d"); R(5*T, 18*T+4, T, 1, "#d19f66"); R(5*T, 19*T+4, T, 1, "#d19f66");
+  wallV(5, 9, 30, [18, 19]);
+  wallH(30, 5, 18);
+  R(4.4*T, 18*T+2, 0.9*T, 2*T-4, "#8c4b3a"); R(4.4*T+2, 18*T+4, 0.9*T-4, 2*T-8, "#a45a45");     // doormat by the garden door
+  // east divider with doors to the pods and the lounge; pods/lounge wall; the east wall with the front door
+  wallV(40, 2, 37, [9, 10, 25, 26]);
+  wallH(15, 41, 59, [48, 49]);
+  R(59*T, 0, T, BHP, "#5e4a3b"); R(59*T, 30*T, T, 2*T, "#a6927a");
+  R(57.9*T, 30*T+2, 1.1*T, 2*T-4, "#8c4b3a"); R(57.9*T+3, 30*T+5, 1.1*T-6, 2*T-10, "#a45a45");   // doormat
+  // south wall, with the back door onto the beach
+  R(17*T, 37*T, 43*T, T, "#5e4a3b"); R(17*T, 37*T, 43*T, 2, "#6d5746");
+  R(29*T, 37*T, 2*T, T, "#a6927a"); R(29*T, 36*T+2, 2*T, T-4, "#8c4b3a"); R(29*T+3, 36*T+5, 2*T-6, T-10, "#a45a45");
+
+  // Meet pods
+  PODS.forEach(px => {
+    const x = px*T, y = 2*T;
+    R(x, y, 3*T, 4*T, "#3d3346");
+    R(x+2, y, 3*T-4, 4*T-3, "#e9e2f2");
+    R(x+2, y, 3*T-4, 6, "#b8a9cc");
+    R(x+18, 3*T+2, 12, 12, "#9a7152"); R(x+19, 3*T+3, 10, 2, "#b68862");
+    R(x+20, 3*T+6, 8, 5, "#cfd6e2"); R(x+21, 3*T+7, 6, 3, "#5d6d8a");
+    R(x+4, 4*T+6, 12, 10, "#6a5a86"); R(x+32, 4*T+6, 12, 10, "#6a5a86");
+    R(x, 6*T-3, 3*T, 3, "#8cc7de"); R(x+6, 6*T-3, 3*T-12, 1, "#d8f0f8");
+  });
+  // Boardroom glass + table + chairs + screen
+  const g = "#8cc7de";
+  R(43*T, 7*T, 13*T, 2, g); R(43*T, 14*T-2, 13*T, 2, g); R(43*T, 7*T, 2, 7*T, g); R(56*T-2, 7*T, 2, 7*T, g);
+  R(48*T, 7*T, 2*T, 2, "#e6dfd1");
+  R(46*T, 9*T, 7*T, 2*T, "#8a6247"); R(46*T+2, 9*T+2, 7*T-4, 2*T-6, "#a8795a"); R(46*T, 11*T-4, 7*T, 4, "#6d4c37");
+  for (const tx of [47.5, 49.5, 51.5]){ R(tx*T-6, 8*T+2, 12, 10, "#44506a"); R(tx*T-6, 11*T+4, 12, 10, "#44506a"); R(tx*T-4, 9*T+6, 8, 5, "#dfe4ec"); R(tx*T-4, 10*T+4, 8, 5, "#dfe4ec"); }
+  R(45*T-2, 9*T+10, 12, 12, "#44506a"); R(54*T-10, 9*T+10, 12, 12, "#44506a");
+  R(55*T+6, 8*T+4, 5, 5*T, "#23262f"); R(55*T+7, 8*T+6, 3, 5*T-4, "#3c6f95");
+
+  // Desk clusters
+  CLUSTERS.forEach(({cx, cy}) => {
+    const x = cx*T, y = cy*T;
+    R(x-1, y-1, 4*T+2, 2*T+3, "#5a4a3c");
+    R(x, y, 4*T, 2*T, "#f3efe6"); R(x, 2*T+y-3, 4*T, 3, "#bdb5a6");
+    R(x, y+T-1, 4*T, 2, "#c9c1b2");
+    R(x+2*T-1, y, 2, 2*T, "#ddd6c8");
+  });
+  DESKS.forEach(d => {
+    const top = d.side === "top";
+    const my = top ? d.rowY + 8 : d.rowY + 1;
+    R(d.dx+10, my, 12, 7, "#2e3140");
+    R(d.dx+14, top ? my-1 : my+7, 4, 1, "#50546a");
+    R(d.dx+10, top ? d.rowY+2 : d.rowY+11, 12, 3, "#d9dde6");
+    const h = hash("desk"+d.n);
+    if (h % 3 === 0){ R(d.dx+26, d.rowY+5, 4, 5, "#b5652b"); R(d.dx+25, d.rowY+2, 6, 4, "#5aa850"); }
+    else if (h % 3 === 1){ R(d.dx+3, d.rowY+5, 4, 4, ["#e05a5a","#4f9ed9","#f2a93b"][h%3+ (h>>>4)%2]); R(d.dx+7, d.rowY+6, 1, 2, "#888"); }
+    else { R(d.dx+3, d.rowY+4, 7, 5, "#fafafa"); R(d.dx+4, d.rowY+5, 5, 1, "#9aa"); }
+    R(d.dx+27, top ? d.rowY+1 : d.rowY+10, 3, 3, "#4a4e5e");
+    const chY = top ? (d.cy-1)*T+3 : (d.cy+2)*T+2;
+    R(d.dx+10, chY, 12, 11, "#3b3f4e"); R(d.dx+11, top ? chY : chY+8, 10, 3, "#2a2d39");
+  });
+
+  // Lounge: sofas, coffee table, armchairs, wall TV, arcade, coat stand
+  const sofa = (x, y, up) => {
+    R(x, y, 5*T, T+8, "#3f6fa3");
+    R(x+4, up ? y : y+6, 5*T-8, T+2, "#5b95cf");
+    for (let i = 1; i < 3; i++) R(x + i*28 + 4, up ? y : y+6, 1, T+2, "#4a81b9");
+    R(x, up ? y+T+2 : y, 5*T, 6, "#335d8a");
+    R(x, y, 5, T+8, "#335d8a"); R(x+5*T-5, y, 5, T+8, "#335d8a");
+  };
+  sofa(45*T, 20*T-4, false);
+  sofa(45*T, 25*T+4, true);
+  R(46*T, 22*T+6, 3*T, 2*T-4, "#7a5238"); R(46*T+2, 22*T+8, 3*T-4, 2*T-10, "#95684a");
+  R(47*T, 23*T, 5, 5, "#f4f1ea"); R(48*T+4, 22*T+11, 6, 6, "#5aa850");
+  for (const ay of [21*T+2, 23*T+10]){ R(52*T, ay, 24, 20, "#d49a2a"); R(52*T+3, ay+5, 18, 13, "#e8b24a"); R(52*T, ay, 24, 5, "#b98320"); }
+  R(59*T-6, 20*T, 6, 5*T, "#23262f"); R(59*T-5, 20*T+3, 3, 5*T-6, "#2f4d6a");
+  { const ax = 56.3*T, ay = 33.5*T; R(ax, ay, 2*T, 2*T, "#7b3fa0"); R(ax+4, ay+4, 2*T-8, 12, "#1d1330"); R(ax+6, ay+6, 2*T-12, 8, "#57d1c9"); R(ax+8, ay+22, 3, 3, "#ef6b6b"); R(ax+16, ay+22, 3, 3, "#ffcf4a"); }
+  R(58.2*T, 27.2*T, 3, 1.6*T, "#6d4c37"); R(58.2*T-5, 27.2*T, 13, 3, "#6d4c37"); R(58.2*T-6, 27.6*T, 5, 8, "#e05a5a"); R(58.2*T+4, 27.8*T, 5, 7, "#4f9ed9");
+
+  // Library: shelves on the west wall and along the bottom, beanbags, reading lamp
+  R(6*T, 20.4*T, T, 8.4*T, "#6b4a32");
+  for (let y = 20.4*T+2; y < 28.8*T-2; y += 8){
+    R(6*T+2, y+6, T-4, 2, "#4f3524");
+    for (let bx = 6*T+2; bx < 7*T-2; bx += 3){ const h = hash("b"+bx+y); R(bx, y + (h%2), 2, 6 - (h%2), SHIRTS[h % SHIRTS.length]); }
+  }
+  R(7*T, 28.6*T, 10*T, T+2, "#6b4a32");
+  for (let bx = 7*T+2; bx < 17*T-2; bx += 3){ const h = hash("bb"+bx); R(bx, 28.6*T+2 + (h%3), 2, 8 - (h%3), SHIRTS[(h>>>2) % SHIRTS.length]); }
+  const bean = (x, y, col) => { R(x-9, y-8, 18, 12, shade(col, .8)); R(x-8, y-9, 16, 10, col); R(x-5, y-8, 6, 2, shade(col, 1.2)); };
+  for (const [x, y, col] of BEANS) bean(x, y, col);
+  R(16.2*T, 23.6*T, 3, 1.4*T, "#4a4e5e"); R(16.2*T-4, 23.2*T, 11, 6, "#f5d54a");
+
+  // Pantry: counter along the top wall, fridge, high table with stools
+  R(6*T, 9*T, 9.5*T, 1.6*T, "#8f6f52"); R(6*T, 9*T, 9.5*T, 8, "#ece6da"); R(6*T, 9*T+8, 9.5*T, 2, "#c7bfb0");
+  R(7*T, 8.7*T, 12, 14, "#2f2f37"); R(7*T+3, 8.7*T+4, 6, 4, "#ef6b6b");                        // coffee machine
+  R(10*T, 9*T+1, 16, 6, "#9aa6b8"); R(10*T+2, 9*T+2, 12, 4, "#c9d6e6");                        // sink
+  R(12.7*T, 8.9*T, 10, 8, "#f5d54a"); R(13.3*T, 9*T, 8, 6, "#6cc07a");                        // fruit
+  R(15.7*T, 8.7*T, T+2, 3*T, "#e9eef2"); R(15.7*T, 10*T, T+2, 1, "#b8c0c8"); R(16.5*T, 9*T, 2, 5, "#9aa");   // fridge
+  R(8*T+8, 13*T+2, 5*T, T+4, "#6d4c37"); R(8*T+10, 13*T+3, 5*T-4, T, "#8a6247");
+  for (const sx of [9.5, 12.5]){ R(sx*T-5, 12*T+6, 10, 8, "#3b3f4e"); R(sx*T-5, 14*T+10, 10, 8, "#3b3f4e"); }
+
+  // Studio TV on a low cabinet, with floor cushions
+  { const tx = TV_RECT.x, ty = TV_RECT.y;
+    R(tx+4, ty+22, TV_RECT.w-8, 12, "#6d4c37"); R(tx+6, ty+24, TV_RECT.w-12, 3, "#8a6247");
+    R(tx, ty, TV_RECT.w, 24, "#15161f"); R(tx+2, ty+2, TV_RECT.w-4, 18, "#0e0f16");
+    R(tx+TV_RECT.w/2-3, ty+20, 6, 3, "#15161f");
+    for (const [cx, col] of [[tx+8, "#f2a93b"], [tx+24, "#5fb4e8"], [tx+40, "#e05a5a"]]){ R(cx-5, ty+44, 12, 8, shade(col, .8)); R(cx-4, ty+43, 10, 7, col); } }
+
+  // Plants, water cooler, printer
+  const plant = (x, y, big) => {
+    const s = big ? 1.4 : 1;
+    R(x-5*s, y-2, 10*s, 8, "#b5652b"); R(x-5*s, y-2, 10*s, 2, "#cf7a3b");
+    R(x-7*s, y-12*s, 14*s, 10*s, "#3f8a45"); R(x-5*s, y-16*s, 10*s, 6*s, "#56a85a"); R(x-2, y-18*s, 5, 4, "#6fbf5a");
+  };
+  for (const [x, y, big] of HALL_PLANTS) plant(x, y, big);
+  R(39*T-2, 6*T, 12, 18, "#dfe6ee"); R(39*T, 5*T, 8, 8, "#8fd0f0");
+  R(39*T-4, 12*T, 18, 14, "#cfd3db"); R(39*T-2, 12*T+2, 14, 4, "#6f7585");
+  drawGarden(c);
+  drawBeach(c);
+}
+
+/* ---------------- The garden (west, round the pantry and library) ---------------- */
+const GARDEN_SEATS = [
+  ...[9.5, 11.5, 13.5].map(tx => ({x: tx*T, y: 2.72*T, face: "down", seated: true, where: "Outdoor deck", laptop: {x: tx*T - 4, y: 2.72*T + 4}})),
+  ...[9.5, 11.5, 13.5].map(tx => ({x: tx*T, y: 5.35*T, face: "up", seated: true, where: "Outdoor deck", laptop: {x: tx*T - 4, y: 3.97*T}})),
+  {x: 1.1*T, y: 5.23*T, face: "down", seated: true, where: "Neem bench"},
+  {x: 2.5*T, y: 5.23*T, face: "down", seated: true, where: "Neem bench"},
+  {x: 1.7*T, y: 11.9*T, face: "down", seated: true, where: "Garden swing"},
+  {x: 1.1*T, y: 24.2*T, face: "down", seated: true, where: "Picnic mat", laptop: {x: 1.1*T - 4, y: 24.2*T + 2}},
+  {x: 2.4*T, y: 24.2*T, face: "down", seated: true, where: "Picnic mat", laptop: {x: 2.4*T - 4, y: 24.2*T + 2}},
+  {x: 5.5*T, y: 35*T, face: "down", seated: true, where: "Pond bench"},
+  {x: 7.1*T, y: 35*T, face: "down", seated: true, where: "Pond bench"},
+];
+const NEEM = {x: 2.4*T, y: 3.2*T};
+const POND = {x: 13.3*T, y: 34.3*T, rx: 3.1*T, ry: 2*T};
+function drawLawn(c){
+  const R = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+  R(0, 0, 17.4*T, BHP, "#7fb069");
+  for (let i = 0; i < 520; i++){ const h = hash("g" + i); R(h % (17*T), (h >>> 9) % BHP, 1, 2, (h >>> 20) % 3 ? "#8fc178" : "#6fa05b"); }
+}
+function drawGarden(c){
+  const R = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+  // stepping-stone paths: along the top, down the west strip, round the bottom to the beach gate
+  const path = (x, y, w, h) => { R(x, y, w, h, "#cdbfa4"); for (let yy = y; yy < y + h - 2; yy += 11) for (let xx = x + ((yy / 11) % 2 ? 0 : 6); xx < x + w - 2; xx += 13) R(xx + 1, yy + 1, Math.min(11, x + w - xx - 2), 9, "#dccfb4"); };
+  path(3.2*T, 5.9*T, 13.6*T, 1.4*T); path(3.2*T, 5.9*T, 1.4*T, 26.3*T); path(3.2*T, 30.8*T, 6.5*T, 1.4*T); path(8.3*T, 30.8*T, 1.4*T, 6.9*T);
+  path(4.4*T, 18.2*T, 1.2*T, 1.6*T);
+  // flower bed along the west edge and under the hall windows
+  const bed = (x, y, w, h, vertical) => {
+    R(x, y, w, h, "#7a5236");
+    const n = vertical ? h : w;
+    for (let k = 3; k < n - 3; k += 7){ const hh = hash("f" + x + k); const fx = vertical ? x + 2 + hh % 3 : x + k, fy = vertical ? y + k : y + 1 + hh % 3; R(fx, fy, 4, 4, ["#ff8a3d", "#e8403a", "#ffcf4a", "#f29cb6"][hh % 4]); R(fx + 1, fy + 4, 2, 2, "#4f8a3e"); }
+  };
+  bed(0, 7.6*T, 10, 22.6*T, true); bed(16.2*T, 31*T, 12, 6*T, true);
+  // outdoor deck with a long table and fairy-light posts
+  R(6.8*T, 0.6*T, 9*T, 4.8*T, "#b07a4a");
+  for (let y = 0.6*T; y < 5.4*T; y += 5) R(6.8*T, y + 4, 9*T, 1, "#96643a");
+  R(6.8*T, 0.6*T, 9*T, 2, "#8a5a33"); R(6.8*T, 5.4*T - 2, 9*T, 2, "#8a5a33");
+  R(8.5*T, 3.2*T, 6*T, 1.2*T, "#7a5238"); R(8.5*T + 2, 3.2*T + 2, 6*T - 4, 1.2*T - 6, "#9a6a47");
+  for (const tx of [9.5, 11.5, 13.5]){ R(tx*T - 6, 1.98*T, 12, 8, "#e9e2d0"); R(tx*T - 6, 4.85*T, 12, 8, "#e9e2d0"); }
+  R(6.9*T, 0.1*T, 3, 0.9*T, "#6d4c37"); R(15.6*T, 0.1*T, 3, 0.9*T, "#6d4c37");
+  // neem bench, garden swing, picnic mat, pond bench
+  R(0.5*T, 5*T, 2.6*T, 8, "#8a6247"); R(0.5*T, 5*T + 8, 3, 5, "#6d4c37"); R(3.1*T - 3, 5*T + 8, 3, 5, "#6d4c37");
+  R(0.6*T, 10*T, 3, 2.8*T, "#6d4c37"); R(2.6*T, 10*T, 3, 2.8*T, "#6d4c37"); R(0.6*T, 10*T, 2.1*T, 3, "#6d4c37");
+  R(1.2*T, 11.6*T, 16, 5, "#8a6247"); R(1.2*T + 3, 10.2*T, 1, 1.4*T, "#555"); R(2.2*T + 11, 10.2*T, 1, 1.4*T, "#555");
+  R(0.4*T, 23.4*T, 2.7*T, 2.2*T, "#e9e2d0"); for (let x = 0.4*T; x < 3.1*T; x += 8) R(x, 23.4*T, 4, 2.2*T, "#e05a5a");
+  R(4.8*T, 34.8*T, 3*T, 8, "#8a6247"); R(4.8*T, 34.8*T + 8, 3, 6, "#6d4c37"); R(7.8*T - 3, 34.8*T + 8, 3, 6, "#6d4c37");
+  // lily pond with stones
+  c.fillStyle = "#6b5a48"; c.beginPath(); c.ellipse(POND.x, POND.y, POND.rx + 4, POND.ry + 4, 0, 0, Math.PI*2); c.fill();
+  c.fillStyle = "#4f9ed9"; c.beginPath(); c.ellipse(POND.x, POND.y, POND.rx, POND.ry, 0, 0, Math.PI*2); c.fill();
+  c.fillStyle = "#6cb4e6"; c.beginPath(); c.ellipse(POND.x - 0.8*T, POND.y - 0.5*T, 1.5*T, 0.6*T, 0, 0, Math.PI*2); c.fill();
+  for (const [lx, ly] of [[-1.8, 0.3], [1.2, -0.5], [0, 1.1], [2, 0.7]]){ R(POND.x + lx*T - 4, POND.y + ly*T - 3, 9, 6, "#4f9a4a"); R(POND.x + lx*T - 1, POND.y + ly*T - 2, 3, 3, "#f29cb6"); }
+  for (let i = 0; i < 14; i++){ const a = i / 14 * Math.PI * 2; R(POND.x + Math.cos(a) * (POND.rx + 4) - 3, POND.y + Math.sin(a) * (POND.ry + 4) - 2, 6, 4, i % 2 ? "#9a8a78" : "#b3a491"); }
+  // banana plants and flower pots by the garden door
+  const banana = (x, y) => { R(x - 1, y - 10, 3, 12, "#7a8a3a"); for (const [dx, dy, w] of [[-8, -16, 9], [1, -18, 9], [-6, -22, 7], [0, -24, 6]]) R(x + dx, y + dy, w, 4, "#5fa84a"); };
+  banana(1.6*T, 17.2*T); banana(1.6*T, 29.6*T); banana(1.4*T, 36.8*T); banana(16.4*T, 30.6*T);
+  for (const [x, y] of [[4.9*T, 17.6*T], [4.9*T, 20.8*T]]){ R(x - 4, y - 3, 8, 7, "#b5652b"); R(x - 5, y - 8, 10, 6, "#e05a5a"); R(x - 2, y - 10, 5, 3, "#56a85a"); }
+  // bamboo fence along the beach, with the gate
+  for (const [a, b] of [[0, 8.1], [9.9, 17.4]]){ R(a*T, 37.5*T, (b - a)*T, 3, "#c9a45c"); R(a*T, 37.5*T + 6, (b - a)*T, 2, "#b08a45"); for (let x = a*T + 2; x < b*T; x += 6) R(x, 37.2*T, 2, 11, "#d8b86e"); }
+  for (const gx of [8.1, 9.9]){ R(gx*T - 3, 36.8*T, 5, 16, "#8a6a45"); }
+  // the neem tree
+  R(NEEM.x - 4, NEEM.y - 4, 8, 22, "#6d4c37"); R(NEEM.x - 8, NEEM.y + 14, 16, 4, "#5a3e2c");
+  for (const [dx, dy, r, col] of [[0, -14, 26, "#3f7f3a"], [-14, -6, 17, "#4a8f43"], [16, -6, 17, "#4a8f43"], [-5, -22, 15, "#56a04c"], [9, -20, 14, "#56a04c"]]){ c.fillStyle = col; c.beginPath(); c.arc(NEEM.x + dx, NEEM.y + dy, r, 0, Math.PI*2); c.fill(); }
+  for (let i = 0; i < 36; i++){ const h = hash("n" + i); R(NEEM.x - 26 + h % 52, NEEM.y - 36 + (h >>> 7) % 34, 2, 2, "#6cb35c"); }
+}
+
+/* ---------------- The beach (south, full width) ---------------- */
+const BEACH_SEATS = [
+  ...[21.5, 23.5, 25.5].map(tx => ({x: tx*T, y: 41.72*T, face: "down", seated: true, where: "Sea deck", laptop: {x: tx*T - 4, y: 41.72*T + 4}})),
+  ...[21.5, 23.5, 25.5].map(tx => ({x: tx*T, y: 44.35*T, face: "up", seated: true, where: "Sea deck", laptop: {x: tx*T - 4, y: 42.97*T}})),
+  {x: 35.5*T, y: 42.7*T, face: "down", seated: true, where: "Hammock"},
+  {x: 52.5*T, y: 42.7*T, face: "down", seated: true, where: "Hammock"},
+  {x: 43.1*T, y: 42.5*T, face: "down", seated: true, where: "Beach lounger"},
+  {x: 46.9*T, y: 42.5*T, face: "down", seated: true, where: "Beach lounger"},
+];
+const PALMS = [[1.6, 42.6], [15.8, 42], [33.2, 43.1], [37.8, 43.1], [50.2, 43.1], [54.8, 43.1], [58.8, 41.6], [16.6, 36.9]];
+const FIRE = {x: 9*T, y: 43.2*T};
+const BOARDWALK_LAMPS = [4, 14, 24, 34, 44, 54].map(tx => tx*T + 8);
+function drawBeach(c){
+  const R = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+  // sand, wet sand, sea
+  R(0, BHP, WW, SEA_Y - BHP, "#ecd49a");
+  for (let i = 0; i < 700; i++){ const h = hash("s" + i); R(h % WW, BHP + (h >>> 9) % (SEA_Y - BHP), 1, 1, (h >>> 20) % 3 ? "#e0c585" : "#f7e6b8"); }
+  R(0, SEA_Y - 0.9*T, WW, 0.9*T, "#d9bd80");
+  R(0, SEA_Y, WW, WH - SEA_Y, "#3f96cf"); R(0, SEA_Y + 1.4*T, WW, WH - SEA_Y - 1.4*T, "#357fbe"); R(0, WH - 1.3*T, WW, 1.3*T, "#2b6aa6");
+  // boardwalk along the building, with lamp posts
+  R(0, 39.4*T, WW, 1.2*T, "#b07a4a"); R(0, 39.4*T, WW, 2, "#8a5a33"); R(0, 40.6*T - 2, WW, 2, "#8a5a33");
+  for (let x = 0; x < WW; x += 6) R(x, 39.4*T + 2, 1, 1.2*T - 4, "#96643a");
+  for (const x of BOARDWALK_LAMPS){ R(x - 1, 38.6*T, 3, 0.9*T, "#4a4e5e"); R(x - 3, 38.4*T, 7, 4, "#f7efdc"); }
+  // sea deck: the outdoor desk by the water
+  R(19*T, 40.7*T, 9*T, 4.3*T, "#b07a4a");
+  for (let y = 40.7*T; y < 45*T; y += 5) R(19*T, y + 4, 9*T, 1, "#96643a");
+  R(19*T, 45*T - 2, 9*T, 2, "#8a5a33");
+  R(20.5*T, 42.2*T, 6*T, 0.9*T, "#7a5238"); R(20.5*T + 2, 42.2*T + 2, 6*T - 4, 0.9*T - 5, "#9a6a47");
+  for (const tx of [21.5, 23.5, 25.5]){ R(tx*T - 6, 40.97*T, 12, 8, "#e9e2d0"); R(tx*T - 6, 43.85*T, 12, 8, "#e9e2d0"); }
+  // loungers under an umbrella
+  for (const lx of [42.5, 46.3]){ R(lx*T, 41.8*T, 1.2*T, 2.4*T, "#f7efdc"); R(lx*T + 2, 41.8*T + 2, 1.2*T - 4, 0.7*T, "#5fb4e8"); for (let y = 42.6*T; y < 44.1*T; y += 4) R(lx*T + 1, y, 1.2*T - 2, 1, "#d9cbb0"); }
+  R(44.9*T, 41.2*T, 2, 2.4*T, "#8a8a8a");
+  for (let i = 0; i < 6; i++){ R(44.9*T - 22 + i*8, 40.7*T + Math.abs(2.5 - i) * 2, 8, 8 - Math.abs(2.5 - i) * 2, i % 2 ? "#f7efdc" : "#e05a5a"); }
+  // hammocks between palm pairs
+  for (const [a, b] of [[33.2, 37.8], [50.2, 54.8]]){ R(a*T + 3, 42.3*T, (b - a)*T - 6, 9, "#f2a93b"); for (let x = a*T + 3; x < b*T - 6; x += 6) R(x, 42.3*T + 2, 3, 5, "#e05a5a"); }
+  // fire pit with logs
+  for (let i = 0; i < 10; i++){ const a = i / 10 * Math.PI * 2; R(FIRE.x + Math.cos(a) * 9 - 2, FIRE.y + Math.sin(a) * 6 - 2, 4, 3, "#9a8a78"); }
+  R(FIRE.x - 5, FIRE.y - 2, 10, 4, "#5a3e2c"); R(FIRE.x - 1, FIRE.y - 4, 3, 8, "#6d4c37");
+  R(FIRE.x - 22, FIRE.y - 3, 10, 6, "#8a6247"); R(FIRE.x + 12, FIRE.y - 3, 10, 6, "#8a6247");
+  // sandcastle, shells and a starfish
+  R(12.4*T, 44.6*T, 14, 6, "#d9bd80"); R(12.4*T + 2, 44.2*T, 4, 5, "#d9bd80"); R(12.4*T + 8, 44.2*T, 4, 5, "#d9bd80"); R(12.4*T + 6, 43.9*T, 1, 4, "#8a6a45"); R(12.4*T + 7, 43.9*T, 3, 2, "#e05a5a");
+  for (const [x, y, col] of [[5.2, 44.8, "#f7efdc"], [30.6, 45, "#f29cb6"], [40.2, 44.6, "#f7efdc"], [56.4, 44.9, "#f2a93b"]]) R(x*T, y*T, 3, 2, col);
+  R(28.8*T, 44.5*T, 5, 1, "#ef8a5a"); R(28.8*T + 2, 44.5*T - 2, 1, 5, "#ef8a5a");
+  // coconut palms
+  for (const [px, py] of PALMS){
+    const x = px*T, y = py*T;
+    R(x - 2, y - 26, 5, 28, "#8a6a45"); for (let k = 0; k < 7; k++) R(x - 2, y - 24 + k*4, 5, 1, "#6d5236");
+    for (const [dx, dy, w, h] of [[-14, -32, 14, 4], [2, -32, 14, 4], [-10, -36, 10, 4], [2, -36, 10, 4], [-4, -40, 9, 5], [-16, -28, 6, 3], [12, -28, 6, 3]]) R(x + dx, y + dy, w, h, "#3f8a45");
+    R(x - 3, y - 30, 3, 3, "#7a5a2a"); R(x + 1, y - 29, 3, 3, "#7a5a2a");
+  }
+}
+function outdoorCasters(c){
+  c(6.8*T, 0.6*T, 9*T, 4.8*T, 1);
+  c(8.5*T, 3.2*T, 6*T, 1.2*T, 7);
+  for (const [px, py] of PALMS) c(px*T - 12, py*T - 38, 24, 14, 38);
+  c(NEEM.x - 26, NEEM.y - 36, 52, 44, 30);
+  c(0.5*T, 5*T, 2.6*T, 8, 6); c(0.6*T, 10*T, 2.2*T, 2.8*T, 20); c(4.8*T, 34.8*T, 3*T, 8, 6);
+  c(0, 37.4*T, 8.1*T, 8, 10); c(9.9*T, 37.4*T, 7.5*T, 8, 10);
+  c(20.5*T, 42.2*T, 6*T, 0.9*T, 7);
+  c(44.9*T - 22, 40.7*T, 48, 8, 34);
+  for (const x of BOARDWALK_LAMPS) c(x - 1, 38.6*T, 3, 0.9*T, 26);
+}
+function drawKolam(c){
+  // a fresh kolam at the garden door every day (rice-flour dots joined into loops)
+  const seed = hash(istDateKey()), cx = 2*T, cy = 19*T, n = 3 + (seed % 2), gap = 7;
+  c.fillStyle = "#fbf7ee"; c.strokeStyle = "#fbf7ee"; c.lineWidth = 1;
+  for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++){
+    if (Math.abs(i) + Math.abs(j) > n) continue;
+    const x = cx + i*gap/1.8, y = cy + j*gap/1.6; c.fillRect(Math.round(x), Math.round(y), 1, 1);
+    if (((seed >>> ((i + j + 8) % 20)) & 1) && Math.abs(i) + Math.abs(j) < n){ c.beginPath(); c.arc(x, y, gap/3.4, 0, Math.PI*2); c.stroke(); }
+  }
+  c.beginPath(); c.moveTo(cx - n*gap/1.8 - 3, cy); c.lineTo(cx, cy - n*gap/1.6 - 2); c.lineTo(cx + n*gap/1.8 + 3, cy); c.lineTo(cx, cy + n*gap/1.6 + 2); c.closePath(); c.stroke();
+}
+function istDateKey(){ return new Date(Date.now() + 19800000).toISOString().slice(0, 10); }
+
+/* ---------------- Canvas, camera ---------------- */
+const vp = document.getElementById("vp"), cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+let dpr = 1, vw = 0, vh = 0, zoom = 1, pan = {x:0, y:0}, namesForced = null;
+const BOTTOM_UI = 84;   // room for the day slider, so the whole office sits above it
+function baseScale(){ return Math.min(vw / WW, Math.max(80, vh - BOTTOM_UI) / WH); }
+function scale(){ return baseScale() * zoom; }
+function origin(){ const s = scale(); return {x: (vw - WW*s)/2 + pan.x, y: (Math.max(80, vh - BOTTOM_UI) - WH*s)/2 + pan.y}; }
+function resize(){
+  const r = vp.getBoundingClientRect(); dpr = Math.min(2, window.devicePixelRatio || 1);
+  vw = r.width; vh = r.height; cv.width = Math.round(vw*dpr); cv.height = Math.round(vh*dpr);
+}
+new ResizeObserver(resize).observe(vp); resize();
+function toWorld(sx, sy){ const s = scale(), o = origin(); return {x: (sx - o.x)/s, y: (sy - o.y)/s}; }
+function toScreen(wx, wy){ const s = scale(), o = origin(); return {x: o.x + wx*s, y: o.y + wy*s}; }
+function clampPan(){
+  const s = scale(); const mx = Math.max(0, (WW*s - vw)/2 + 40), my = Math.max(0, (WH*s - vh)/2 + 40);
+  pan.x = Math.max(-mx, Math.min(mx, pan.x)); pan.y = Math.max(-my, Math.min(my, pan.y));
+}
+function setZoom(z, cx = vw/2, cy = vh/2){
+  const before = toWorld(cx, cy); zoom = Math.max(1, Math.min(4, z));
+  const after = toScreen(before.x, before.y); pan.x += cx - after.x; pan.y += cy - after.y; clampPan();
+}
+document.getElementById("zIn").onclick = () => setZoom(zoom*1.35);
+document.getElementById("zOut").onclick = () => setZoom(zoom/1.35);
+document.getElementById("zFit").onclick = () => { zoom = 1; pan = {x:0, y:0}; };
+const namesBtn = document.getElementById("names");
+let projectsAll = false;
+const projBtn = document.getElementById("proj");
+projBtn.onclick = () => { projectsAll = !projectsAll; projBtn.setAttribute("aria-pressed", String(projectsAll)); };
+namesBtn.onclick = () => { namesForced = !showNames(); namesBtn.setAttribute("aria-pressed", String(namesForced)); };
+function showNames(){ return namesForced === null ? scale() >= 2.1 : namesForced; }
+cv.addEventListener("wheel", e => { e.preventDefault(); const r = cv.getBoundingClientRect(); setZoom(zoom * (e.deltaY < 0 ? 1.15 : 1/1.15), e.clientX - r.left, e.clientY - r.top); }, {passive:false});
+let drag = null;
+cv.addEventListener("pointerdown", e => { drag = {x:e.clientX, y:e.clientY, px:pan.x, py:pan.y, moved:false}; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener("pointermove", e => {
+  const r = cv.getBoundingClientRect();
+  if (drag){ const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx)+Math.abs(dy) > 4){ drag.moved = true; cv.classList.add("dragging"); } if (drag.moved){ pan.x = drag.px + dx; pan.y = drag.py + dy; clampPan(); hideTip(); return; } }
+  hover(e.clientX - r.left, e.clientY - r.top);
+});
+cv.addEventListener("pointerup", e => { const r = cv.getBoundingClientRect(); if (drag && !drag.moved && overTV(e.clientX - r.left, e.clientY - r.top)){ openTV(); } else if (drag && !drag.moved){ const hit = hitTest(e.clientX - r.left, e.clientY - r.top); select(hit ? hit.id : null); } drag = null; cv.classList.remove("dragging"); });
+cv.addEventListener("pointerleave", hideTip);
+
+/* ---------------- Hit testing + tooltip + card ---------------- */
+function overTV(sx, sy){ const w = toWorld(sx, sy); return w.x >= TV_RECT.x && w.x <= TV_RECT.x + TV_RECT.w && w.y >= TV_RECT.y && w.y <= TV_RECT.y + 34; }
+function hitTest(sx, sy){
+  const w = toWorld(sx, sy);
+  const vis = people.filter(p => p.visible && p.pos).sort((a, b) => b.pos.y - a.pos.y);
+  for (const p of vis){ if (w.x > p.pos.x-7 && w.x < p.pos.x+7 && w.y > p.pos.y-20 && w.y < p.pos.y+2) return p; }
+  for (const p of people){ const r = p.desk.region; if (w.x >= r.x && w.x < r.x+r.w && w.y >= r.y && w.y < r.y+r.h) return p; }
+  return null;
+}
+const tip = document.getElementById("tip");
+function hover(sx, sy){
+  tvHover = overTV(sx, sy);
+  if (tvHover){ cv.style.cursor = "pointer"; tip.innerHTML = "<b>Studio TV</b>Tap to watch news, wins and kudos"; tip.hidden = false; tip.style.left = Math.min(vw - tip.offsetWidth - 8, sx + 14) + "px"; tip.style.top = Math.max(8, sy - 44) + "px"; return; }
+  const p = hitTest(sx, sy);
+  if (!p){ hideTip(); cv.style.cursor = ""; return; }
+  cv.style.cursor = "pointer";
+  tip.innerHTML = ""; const b = document.createElement("b"); b.textContent = p.name; tip.append(b, document.createTextNode(lineFor(p)));
+  tip.hidden = false;
+  const tw = tip.offsetWidth; tip.style.left = Math.min(vw - tw - 8, sx + 14) + "px"; tip.style.top = Math.max(8, sy - 44) + "px";
+}
+function hideTip(){ tip.hidden = true; }
+function lineFor(p){
+  if (p.state === "leave") return "On leave today";
+  if (p.state === "notin") return "Not checked in yet";
+  if (p.state === "out") return p.checkout ? `Checked out ${p.checkout}` : "Checked out";
+  if (p.state === "loading") return "Connecting…";
+  return p.statusText ? `${STATES[p.state].label} · ${p.statusText}` : `${STATES[p.state].label} · in ${p.checkin || ""}`;
+}
+let selected = null;
+const card = document.getElementById("card");
+function select(id){
+  selected = id; renderList();
+  if (!id){ card.hidden = true; return; }
+  const p = byId[id]; const st = STATES[p.state];
+  card.innerHTML = "";
+  const x = document.createElement("button"); x.className = "x"; x.textContent = "×"; x.setAttribute("aria-label", "Close"); x.onclick = () => select(null);
+  const h = document.createElement("h3"); h.textContent = p.name;
+  card.append(x, h);
+  if (p.role){ const r = document.createElement("div"); r.className = "role"; r.textContent = p.role; card.append(r); }
+  const pill = document.createElement("span"); pill.className = "pill"; pill.style.background = st.color; pill.textContent = st.label; if (p.state==="leave"||p.state==="notin") pill.style.color = "#eef0f8";
+  card.append(pill);
+  const row = (k, v) => { if (!v) return; const d = document.createElement("div"); d.className = "row"; const a = document.createElement("span"); a.textContent = k; const b = document.createElement("span"); b.textContent = v; d.append(a, b); card.append(d); };
+  { const cb = celebOf(p); if (cb) row(cb.on ? "Coming up" : "Today", celebLabel(cb).replace(/ today$/, "")); }
+  row("Checked in", p.checkin);
+  row("Out", p.state === "out" ? p.checkout : "");
+  row("Slack", (p.statusEmoji ? p.statusEmoji + " " : "") + (p.statusText || ""));
+  row("Working on", p.projects.length ? p.projects.map(c => "#" + c).join(", ") : "");
+  if (p.lastMsg) row("Latest", `“${p.lastMsg.text}” in #${p.lastMsg.ch}`);
+  row("Where", p.seat && p.seat.where ? p.seat.where : `Desk ${String(p.desk.n).padStart(2, "0")}`);
+  if (p.seat && p.seat.where) row("Desk", `Desk ${String(p.desk.n).padStart(2, "0")}`);
+  renderActions(p);
+  card.hidden = false;
+}
+
+/* ---------------- Celebrations: work anniversaries and birthdays ---------------- */
+// The calendar. joined = first day at Become (YYYY-MM-DD) → work anniversary every year.
+// birthday = "MM-DD" (no year needed). Add people here; Slack wishes in #_general are picked up too.
+const CELEBRATIONS = [
+  {id: "UB05U84LX",   joined: "2017-11-23", birthday: "12-30"},   // Harish
+  {id: "USH087NMD",   joined: "2020-02-04", birthday: "12-03"},   // Indhu
+  {id: "U0145T9FDH8", joined: "2020-05-26", birthday: "11-04"},   // Samshritha
+  {id: "U01CN2WA1T2", joined: "2020-10-04", birthday: "11-05"},   // Samuel
+  {id: "ULVHUR56Y",   joined: "2021-04-01", birthday: "06-13"},   // AV (Vignesh)
+  {id: "U022F2W0HHP", joined: "2021-05-17", birthday: "04-18"},   // Preksha
+  {id: "U02MCTN385A", joined: "2021-11-15", birthday: "03-31"},   // Pooja
+  {id: "U05E5KBAT26", joined: "2023-06-26", birthday: "11-09"},   // Afri
+  {id: "U05F5TWC59B", joined: "2023-09-27", birthday: "12-07"},   // Juhi
+  {id: "U05UDFQ1Z7A", joined: "2023-10-03", birthday: "11-07"},   // Arun Sandeep
+  {id: "U06CGR4RPGV", joined: "2024-01-02", birthday: "07-31"},   // Gautham
+  {id: "U07F37E4S12", joined: "2024-07-24", birthday: "04-21"},   // Arun Thangavel
+  {id: "U08AU3DM092", joined: "2025-01-29", birthday: "10-03"},   // Gokul
+  {id: "U08DHB3TTFX", joined: "2025-02-17", birthday: "02-20"},   // Prity
+  {id: "U08VA01T7UZ", joined: "2025-06-02", birthday: "05-27"},   // Gayathri
+  {id: "U099E4897GQ", joined: "2025-08-04", birthday: "04-30"},   // Pooja Raghu
+  {id: "U099E470LM6", joined: "2025-08-04", birthday: "07-04"},   // Praveen
+  {id: "U099E481108", joined: "2025-08-04"},                      // Kajol (no birthday on file)
+  {id: "U09ECQP5KDK", joined: "2025-09-10", birthday: "11-13"},   // Shruti
+  {id: "U093E411EUQ", joined: "2025-11-05", birthday: "05-06"},   // Akshaya
+  {id: "U09US6GF20N", joined: "2025-11-19", birthday: "09-12"},   // Soham
+  {id: "U09US6G61V4", joined: "2025-11-19", birthday: "08-06"},   // Achuthan
+  {id: "U09US6FJHAA", joined: "2025-11-24", birthday: "01-03"},   // Induja
+  {id: "U0A7L4VS1PS", joined: "2026-01-05", birthday: "05-25"},   // Adithi
+  {id: "U0A6NCL2FJR", joined: "2026-01-05", birthday: "09-11"},   // Preetam
+  {id: "U0ACYVBJBS5", joined: "2026-02-02", birthday: "09-07"},   // Mo
+];
+// One-off celebrations on a specific date (YYYY-MM-DD), for days the calendar above doesn't cover.
+const EXTRA_CELEBRATIONS = [
+];
+const ordinal = n => n + (["th","st","nd","rd"][(n % 100 - 20) % 10] || ["th","st","nd","rd"][n % 100] || "th");
+function istToday(){ const d = new Date(Date.now() + 19800000); return {y: d.getUTCFullYear(), md: d.toISOString().slice(5, 10), iso: d.toISOString().slice(0, 10)}; }
+let celebCache = {key: "", list: []};
+function celebrationsToday(){
+  const {y, md, iso} = istToday();
+  const key = iso + ":" + generalMsgs.length;
+  if (celebCache.key === key) return celebCache.list;
+  const list = [], seen = new Set();
+  const add = (id, type, years, on) => { const p = byId[id]; if (!p || seen.has(id + type)) return; seen.add(id + type); list.push({p, type, years, on}); };
+  // Today, plus — on a Friday — whatever falls on Saturday and Sunday, so weekend days still get celebrated with the team.
+  const base = new Date(iso + "T00:00:00Z"), days = [{md, y, on: null}];
+  if (base.getUTCDay() === 5) for (const [k, nm] of [[1, "Saturday"], [2, "Sunday"]]){ const d = new Date(base.getTime() + k * 86400000); days.push({md: d.toISOString().slice(5, 10), y: d.getUTCFullYear(), on: nm}); }
+  for (const dy of days) for (const c of CELEBRATIONS){
+    if (c.joined && c.joined.slice(5) === dy.md && +c.joined.slice(0, 4) < dy.y) add(c.id, "anniv", dy.y - +c.joined.slice(0, 4), dy.on);
+    if (c.birthday && c.birthday === dy.md) add(c.id, "bday", 0, dy.on);
+  }
+  for (const c of EXTRA_CELEBRATIONS) if (c.date === iso) add(c.id, c.type, c.years || 0);
+  // Backup: wishes posted today in #_general that tag a teammate.
+  for (const m of generalMsgs){
+    if (m.date !== iso || !/anniversar|birthday|happy returns/i.test(m.raw)) continue;
+    const bday = /birthday|happy returns/i.test(m.raw), yrs = (/(\d+)\s*(?:st|nd|rd|th)?\s*(?:year|yr)/i.exec(m.raw) || [])[1];
+    for (const x of m.raw.matchAll(/<@([UW][A-Z0-9]+)/g)) add(x[1], bday ? "bday" : "anniv", yrs ? +yrs : 0);
+  }
+  celebCache = {key, list};
+  return list;
+}
+const celebOf = p => celebrationsToday().find(c => c.p === p);
+function celebLabel(c){ const when = c.on ? ` on ${c.on}` : " today"; return c.type === "bday" ? `🎂 Birthday${when}` : c.years ? `🎉 ${c.years} ${c.years === 1 ? "year" : "years"} at Become${when}` : `🎉 Work anniversary${when}`; }
+function bannerText(list){
+  const names = list.map(c => firstName(c.p).toUpperCase());
+  if (list.length === 1){ const c = list[0]; return c.type === "bday" ? `HAPPY BIRTHDAY, ${names[0]}!` : c.years ? `HAPPY ${c.years} ${c.years === 1 ? "YEAR" : "YEARS"}, ${names[0]}!` : `HAPPY ANNIVERSARY, ${names[0]}!`; }
+  return `HAPPY DAY, ${names.slice(0, -1).join(", ")} & ${names[names.length - 1]}!`;
+}
+function wishLines(c){
+  const n = firstName(c.p);
+  if (c.type === "bday") return [`Happy birthday, ${n}! 🎂`, `Birthday treat, ${n}? 🍰`, `Cake in the lounge! 🎂`, `Many happy returns, ${n}!`, `Party hat looks good 🥳`];
+  const y = c.years;
+  return [y ? `Happy ${y} years, ${n}! 🎉` : `Happy anniversary, ${n}! 🎉`, y ? `${ordinal(y)} Become-versary! 🐘` : "Become-versary! 🐘", `Treat, ${n}? 🍰`, "Cake in the lounge corner 🎂", y ? `${y} years already?!` : "Time flies! 🎉", "Speech! Speech! 🎤"];
+}
+const THANKS = ["Thank you!! 🥹", "Treat's on me 🍰", "Aww, thanks team 💛", "Can't believe it either!", "Cake's in the lounge 🎂", "Best team ever 🐘"];
+const PARTY_SPOTS = [
+  {x: 45*T, y: 33*T + 14, face: "down", role: "host"},
+  {x: 43*T + 6, y: 34*T + 14, face: "down"},
+  {x: 47*T + 4, y: 34*T + 14, face: "down"},
+];
+function drawPartyCorner(c, t, list){
+  const R = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), w, h); };
+  // bunting along the hall's top wall and across the lounge
+  const COLS = ["#ef6b6b", "#ffcf4a", "#5fb4e8", "#6bd18a", "#f29cb6", "#b69cf0"];
+  for (const [x0, x1, y] of [[18*T + 4, 40*T - 4, 2*T + 1], [41*T + 4, 59*T - 4, 16*T + 1]]){
+    R(x0, y, x1 - x0, 1, "#8a6a4e");
+    for (let x = x0, i = 0; x < x1 - 6; x += 9, i++){ c.fillStyle = COLS[i % COLS.length]; c.beginPath(); c.moveTo(x, y + 1); c.lineTo(x + 6, y + 1); c.lineTo(x + 3, y + 6); c.closePath(); c.fill(); }
+  }
+  // banner on two poles
+  R(43.5*T, 32.2*T, 2, 1.9*T, "#6d4c37"); R(48.5*T, 32.2*T, 2, 1.9*T, "#6d4c37");
+  R(43.5*T + 2, 32.3*T, 5*T - 2, 10, "#c85a40"); R(43.5*T + 2, 32.3*T + 10, 5*T - 2, 2, "#8f3a28");
+  // party table + cake with flickering candles
+  R(44*T, 34*T, 2*T, 13, "#f7efdc"); R(44*T, 34*T + 11, 2*T, 3, "#d9cbb0");
+  for (let x = 44*T + 2; x < 46*T - 2; x += 6) R(x, 34*T + 12, 3, 2, COLS[(x >> 3) % COLS.length]);
+  const cx = 45*T, cy = 34*T + 3;
+  R(cx - 8, cy, 16, 7, "#f29cb6"); R(cx - 8, cy, 16, 2, "#fff4f7"); R(cx - 6, cy - 5, 12, 5, "#ffcf4a"); R(cx - 6, cy - 5, 12, 1, "#fff4f7");
+  const years = list.find(x => x.type === "anniv" && x.years) ? Math.min(5, list.find(x => x.type === "anniv").years) : 1;
+  for (let i = 0; i < years; i++){ const x = cx - (years - 1) * 2 + i * 4; R(x, cy - 9, 1, 4, "#5fb4e8"); if (Math.floor(t / 180 + i) % 3) R(x, cy - 11, 1, 2, "#ffcf4a"); else R(x, cy - 12, 1, 2, "#ff9f43"); }
+  R(44*T + 3, 34*T + 3, 5, 5, "#fff"); R(46*T - 8, 34*T + 3, 5, 5, "#fff");   // plates
+  // balloons, gently bobbing
+  const balloon = (x, y, col, ph) => { const b = Math.round(Math.sin(t / 700 + ph) * 1.5); R(x, y + 9 + b, 1, 12, "#8a8a8a"); R(x - 3, y + b, 7, 8, col); R(x - 2, y - 1 + b, 5, 10, col); R(x - 1, y + 1 + b, 2, 2, "rgba(255,255,255,.6)"); };
+  balloon(43*T + 4, 31.6*T, "#ef6b6b", 0); balloon(43*T + 10, 31.3*T, "#ffcf4a", 1); balloon(49*T - 2, 31.5*T, "#5fb4e8", 2); balloon(49*T + 4, 31.8*T, "#6bd18a", 3);
+  // a little confetti drifting over the corner
+  if (!reduced) for (let i = 0; i < 14; i++){ const ph = (t / 30 + i * 53) % 60; R(43.5*T + ((i * 29) % (5*T)), 31.5*T + ph, 2, 2, COLS[i % COLS.length]); }
+}
+function drawPartyHat(c, p, seated){
+  const x = Math.round(p.pos.x), top = Math.round(p.pos.y) - (seated ? 14 : 18);
+  c.fillStyle = "#ffcf4a"; c.fillRect(x - 1, top - 7, 2, 2);
+  c.fillStyle = "#b69cf0"; c.fillRect(x - 1, top - 5, 2, 2); c.fillRect(x - 2, top - 3, 4, 2); c.fillRect(x - 3, top - 1, 6, 1);
+  c.fillStyle = "#ffcf4a"; c.fillRect(x - 2, top - 3, 1, 1); c.fillRect(x + 1, top - 1, 1, 1);
+}
+function drawDeskCake(c, p, t){
+  const d = p.desk, x = d.dx + 3, y = d.side === "top" ? d.rowY + 3 : d.rowY + 7;
+  c.fillStyle = "#f29cb6"; c.fillRect(x, y + 2, 7, 4); c.fillStyle = "#fff4f7"; c.fillRect(x, y + 2, 7, 1);
+  c.fillStyle = "#5fb4e8"; c.fillRect(x + 3, y - 1, 1, 3); c.fillStyle = Math.floor(t / 200) % 2 ? "#ffcf4a" : "#ff9f43"; c.fillRect(x + 3, y - 2, 1, 1);
+}
+
+/* ---------------- Who is viewing (for the "You" label) ---------------- */
+let selfId = null;          // the viewer's own Slack user ID, once known
+function renderActions(p){}
+
+/* ---------------- Classification ---------------- */
+const EMOJI = {spiral_calendar_pad:"🗓️", calendar:"📅", speech_balloon:"💬", double_vertical_bar:"⏸️", dart:"🎯", house:"🏠", house_with_garden:"🏡",
+  headphones:"🎧", coffee:"☕", palm_tree:"🌴", car:"🚗", airplane:"✈️", hamburger:"🍔", knife_fork_plate:"🍽️", face_with_head_bandage:"🤕",
+  thermometer_face:"🤒", computer:"💻", phone:"📞", telephone_receiver:"📞", headphone:"🎧", no_entry:"⛔", zzz:"💤", brb:"↩️", bus:"🚌", tea:"🍵"};
+function classify(text, emojiName){
+  const t = (text || "").toLowerCase(), e = emojiName || "";
+  if (/\b(brb|afk|break|lunch|coffee|tea|away|bank|errand|driving|travel+ing|stepping out|out for|commut)/.test(t) || /coffee|hamburger|knife_fork|car|bus|airplane/.test(e)) return "away";
+  if (/\b(meet|meeting|call|huddle|interview|sync|standup|stand-up|zoom|presenting|workshop)/.test(t) || /calendar|phone|telephone/.test(e)) return "meet";
+  if (/\b(wfh|work(ing)? from home|remote)/.test(t) || /^house/.test(e)) return "remote";
+  if (/\b(focus|priority|heads? down|deep work|dnd|do not disturb)/.test(t) || /headphone|dart|no_entry/.test(e)) return "focus";
+  return "desk";
+}
+
+/* ---------------- Data → state ---------------- */
+let live = {att: {}, leaves: new Set(), statuses: {}, attOk: false, selfLines: {}};
+let mode = "loading"; // loading | live | demo | blocked
+function recompute(initial){
+  for (const p of people){
+    if (mode === "loading"){ p.state = "loading"; continue; }
+    if (mode === "demo") continue; // demo sets state directly
+    const a = live.att[p.id], s = live.statuses[p.id] || {};
+    p.checkin = a && a.first || null; p.checkout = a && a.outAt || null;
+    p.statusText = s.text || ""; p.statusEmoji = s.emoji || "";
+    if (a && a.in) p.state = classify(s.text, s.emojiName);
+    else if (live.leaves.has(p.id)) p.state = "leave";
+    else if (a) p.state = "out";
+    else p.state = "notin";
+    p.events = a ? a.events : [];
+  }
+  for (const p of people) p.liveState = p.state;
+  if (scrubMin !== null && mode !== "loading") for (const p of people) p.state = stateAt(p, scrubMin);
+  assignSeats(initial);
+  renderMarks();
+  renderHud(); renderList(); if (selected) select(selected);
+}
+const PANTRY_SEATS = AWAY_SEATS.filter(s => s.where.startsWith("Pantry"));
+const LOUNGE_SEATS = AWAY_SEATS.filter(s => !s.where.startsWith("Pantry"));
+const isFood = p => /\b(lunch|breakfast|brunch|dinner|snack|coffee|tea|chai|food|eating|meal)\b/i.test(p.statusText || "") || /🍽|🍔|☕|🍵|🍕|🥪/u.test(p.statusEmoji || "");
+const inPantry = s => s && s.where && s.where.startsWith("Pantry");
+function assignSeats(initial){
+  const taken = new Set();
+  const want = p => (p.state === "meet" ? "meet" : p.state === "away" ? "away" : ["desk","focus","remote"].includes(p.state) ? "desk" : null);
+  // keep existing pool seats
+  const keep = p => p.seat && p.seat.pool !== "desk" && want(p) === p.seat.pool && (p.seat.pool !== "away" || isFood(p) === inPantry(p.seat));
+  for (const p of people){ if (keep(p)) taken.add(p.seat); }
+  for (const p of people){
+    const w = want(p); let seat = null;
+    if (w === "desk") seat = p.desk.seat;
+    else if (w){
+      if (keep(p) && taken.has(p.seat)) seat = p.seat;
+      else { const pool = w === "meet" ? MEET_SEATS : isFood(p) ? PANTRY_SEATS.concat(LOUNGE_SEATS) : LOUNGE_SEATS.concat(PANTRY_SEATS); seat = pool.find(s => !taken.has(s)) || p.desk.seat; if (seat.pool !== "desk") taken.add(seat); }
+    }
+    moveTo(p, seat, initial);
+  }
+}
+function moveTo(p, seat, instant){
+  if (seat === p.seat && (p.visible || !seat)) return;
+  const prev = p.seat; p.seat = seat;
+  if (p.detour) endConvo(p.id);
+  p.detour = null;
+  if (!seat){
+    if (p.visible && !instant && !reduced){ p.leaving = true; p.path = route(p.pos, ENTRANCE); }
+    else { p.visible = false; p.pos = null; p.path = []; }
+    return;
+  }
+  p.leaving = false;
+  if (instant || reduced){ p.pos = {x: seat.x, y: seat.y}; p.path = []; p.visible = true; return; }
+  if (!p.visible || !p.pos){ p.pos = {...ENTRANCE}; p.visible = true; if (!playing && scrubMin === null) Sound.chime(); }
+  p.path = route(p.pos, {x: seat.x, y: seat.y});
+  if (prev && prev.pool === "meet" && seat.pool === "desk" && scrubMin === null && !playing) afterMeeting(p);
+}
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------------- Parsing Slack payloads ---------------- */
+function textOf(res){
+  const p = res && res.payload;
+  if (typeof p === "string") return p;
+  if (p && typeof p === "object"){ for (const k of ["messages","result","results","text"]) if (typeof p[k] === "string") return p[k]; return JSON.stringify(p); }
+  return ((res && res.content) || []).map(c => c.text || "").join("\n");
+}
+function parseAttendance(text){
+  const re = /<@(U[A-Z0-9]+)(?:\|[^>]*)?>\s*has jibbled (in|out) at (\d{1,2}:\d{2}\s?[AP]M)/g;
+  const ev = []; let m; while ((m = re.exec(text))) ev.push({id:m[1], dir:m[2], time:m[3].replace(/^0/, "")});
+  ev.reverse(); // channel reads newest first
+  const out = {};
+  for (const e of ev){
+    const s = out[e.id] || (out[e.id] = {first:null, in:false, outAt:null, events:[]});
+    s.events.push({dir: e.dir, min: toMin(e.time), time: e.time});
+    if (e.dir === "in"){ if (!s.first) s.first = e.time; s.in = true; } else { s.in = false; s.outAt = e.time; }
+  }
+  return out;
+}
+function parseLeaves(text, todayLabel){
+  const re = /<@(U[A-Z0-9]+)(?:\|[^>]*)?>\s*is on \*[^*]+\* for ([A-Z][a-z]{2} \d{1,2}, \d{4})/g;
+  const set = new Set(); let m; while ((m = re.exec(text))) if (m[2] === todayLabel) set.add(m[1]);
+  return set;
+}
+function parseStatus(text){
+  const m = /Status:[ \t]*([^\n]*)/.exec(text || ""); if (!m) return {text:"", emoji:"", emojiName:""};
+  let raw = m[1].trim(), emojiName = "";
+  const em = /^:([\w+\-]+):\s*/.exec(raw); if (em){ emojiName = em[1]; raw = raw.slice(em[0].length); }
+  return {text: raw.trim(), emojiName, emoji: EMOJI[emojiName] || ""};
+}
+function parseTitle(text){
+  const lines = String(text || "").split("\n").map(x => x.trim());
+  const at = lines.findIndex(l => /@/.test(l) && !/\s/.test(l));
+  const t = at > 0 ? lines[at - 1] : "";
+  return t && !/possibilities answered|^pronouns:/i.test(t) && !/\(.*\)$/.test(t) ? t : "";
+}
+
+/* ---------------- Time helpers (IST) ---------------- */
+const IST = "Asia/Kolkata";
+const fmtClock = new Intl.DateTimeFormat("en-GB", {timeZone: IST, hour:"2-digit", minute:"2-digit", hour12:false});
+const fmtDate = new Intl.DateTimeFormat("en-GB", {timeZone: IST, weekday:"short", day:"numeric", month:"short"});
+const fmtLeave = new Intl.DateTimeFormat("en-US", {timeZone: IST, month:"short", day:"numeric", year:"numeric"});
+const fmtShort = new Intl.DateTimeFormat("en-US", {timeZone: IST, hour:"numeric", minute:"2-digit"});
+function istHour(){ const d = new Date(Date.now() + 19800000); return d.getUTCHours() + d.getUTCMinutes()/60; }
+function istMidnightEpoch(){ const DAY = 86400000, OFF = 19800000; return Math.floor((Date.now() + OFF)/DAY)*DAY - OFF; }
+
+/* ---------------- Live wiring (Slack via viewer's connector) ---------------- */
+const banner = document.getElementById("banner");
+const srcEl = document.getElementById("src"), srcText = document.getElementById("srcText");
+let lastUpdate = null, watches = [], dayKey = null, stale = false;
+const DENIALS = new Set(["needs_reauth","server_not_connected","selection_required","not_in_manifest","blocked_by_policy","approval_required","consent_required","not_granted","capability_disabled","capability_removed"]);
+function denialCopy(code){
+  switch (code){
+    case "needs_reauth": return "Slack needs reconnecting. Reconnect it in claude.ai Settings → Connectors, then reload this page.";
+    case "server_not_connected": case "selection_required": return "This page reads Brisk check-ins from Slack. Add Slack in claude.ai Settings → Connectors (or choose which Slack to use), then reload.";
+    case "not_in_manifest": case "consent_required": return "Slack access is off for this page. Allow Slack when the page asks to see who's in the studio today.";
+    case "blocked_by_policy": case "approval_required": return "Your organization's policy blocks this page from reading Slack.";
+    default: return "Live Slack data isn't available in this view.";
+  }
+}
+function showBanner(msg, withDemo){
+  banner.innerHTML = ""; const p = document.createElement("p"); p.textContent = msg; banner.append(p);
+  if (withDemo){ const b = document.createElement("button"); b.textContent = "Show sample office"; b.onclick = () => startDemo(); banner.append(b); }
+  banner.hidden = false;
+}
+function onDenied(code){
+  watches.forEach(u => u()); watches = [];
+  live = {att: {}, leaves: new Set(), statuses: {}, attOk: false};
+  mode = "blocked"; setSrc("err", "Slack not connected");
+  for (const p of people){ p.state = "notin"; p.checkin = null; p.statusText = ""; }
+  assignSeats(true); renderHud(); renderList();
+  showBanner(denialCopy(code), true);
+}
+function setSrc(kind, text){ srcEl.className = "src " + kind; srcText.textContent = text; }
+function touch(res){ const at = res && res.cache && res.cache.storedAt || Date.now(); if (!lastUpdate || at > lastUpdate) lastUpdate = at; stale = false; updateSrc(); }
+let staleCode = "";
+function updateSrc(){
+  if (mode !== "live") return;
+  if (stale){ setSrc("err", "Slack is busy · retrying" + (lastUpdate ? " · last update " + fmtShort.format(lastUpdate) : "")); srcEl.title = staleCode ? `Slack answered: ${staleCode}. The page tries again every minute.` : ""; return; }
+  srcEl.title = ""; setSrc("live", "Live · Brisk + Slack · updated " + (lastUpdate ? fmtShort.format(lastUpdate) : ""));
+}
+
+async function startLive(){
+  let mcp = null;
+  try { mcp = await window.claude?.use?.("mcp"); } catch (_) { mcp = null; }
+  if (!mcp){ startDemo("This copy can't reach Slack, so it's showing a sample office. Open it in Claude with the Slack connector to see today's check-ins."); return; }
+  mode = "live"; setSrc("live", "Reading Brisk check-ins…");
+  subscribe(mcp);
+  setInterval(() => { if (mode === "live" && dayKey !== String(istMidnightEpoch())) subscribe(mcp); }, 60000);
+}
+function subscribe(mcp){
+  watches.forEach(u => u()); watches = [];
+  dayKey = String(istMidnightEpoch());
+  const oldest = String(istMidnightEpoch()/1000);
+  const today = fmtLeave.format(new Date());
+  let first = true;
+  const handle = fn => ev => {
+    if (mode !== "live") return;
+    if (ev.type === "error"){
+      const code = ev.error && ev.error.code;
+      if (DENIALS.has(code)) return onDenied(code);
+      stale = true; staleCode = code || ""; updateSrc(); return;
+    }
+    fn(ev.result); touch(ev.result);
+  };
+  watches.push(mcp.watchTool(SLACK, "slack_read_channel", {channel_id: CH_ATTENDANCE, oldest, limit: 100, response_format: "concise"},
+    handle(res => {
+      const before = live.att; live.att = parseAttendance(textOf(res)); live.attOk = true;
+      // someone just jibbled in: read their status straight away
+      if (!first) for (const id in live.att) if (live.att[id].in && !(before[id] && before[id].in) && byId[id]) enqueueStatus(byId[id]);
+      recompute(first); if (first) queueStatuses(); first = false;
+    }),
+    {refetchInterval: 30000, cache: {staleTime: 15000}}));
+  watches.push(mcp.watchTool(SLACK, "slack_read_channel", {channel_id: CH_LEAVES, limit: 100, response_format: "concise"},
+    handle(res => { live.leaves = parseLeaves(textOf(res), today); if (live.attOk) recompute(false); }),
+    {refetchInterval: 300000, cache: {staleTime: 120000}}));
+  mcpRef = mcp;
+
+  watchGeneral(mcp);
+  // Statuses and project activity are paced through one queue so Slack never throttles the page.
+  clearInterval(subscribe.st); clearInterval(subscribe.ac); clearTimeout(subscribe.ac0);
+  subscribe.st = setInterval(statusTick, 2000);   // round-robin: each checked-in person is re-read about every half minute
+  subscribe.ac0 = setTimeout(queueActivity, 20000);
+  subscribe.ac = setInterval(queueActivity, 1200000);
+  clearInterval(subscribe.ln); clearTimeout(subscribe.ln0);
+  subscribe.ln0 = setTimeout(queueSelfLines, 12000); subscribe.ln = setInterval(queueSelfLines, 900000);
+}
+
+/* ---- Paced Slack queue: one background call at a time ---- */
+let mcpRef = null;
+const slowQ = []; let slowBusy = false, slowPauseUntil = 0;
+function enqueue(key, tool, input, onOk, opt = {}){
+  if (slowQ.some(j => j.key === key)) return;
+  const job = {key, tool, input, onOk, fresh: !!opt.fresh};
+  if (opt.front) slowQ.unshift(job); else slowQ.push(job);
+  pumpQ();
+}
+async function pumpQ(){
+  if (slowBusy || !slowQ.length || !mcpRef || mode !== "live") return;
+  const wait = slowPauseUntil - Date.now(); if (wait > 0){ setTimeout(pumpQ, wait + 50); return; }
+  slowBusy = true; const job = slowQ.shift();
+  try {
+    const res = await mcpRef.callTool(SLACK, job.tool, job.input, job.fresh ? {cache: false} : {cache: {staleTime: 60000}});
+    job.onOk(res);
+  } catch (e){
+    const code = e && e.code;
+    if (DENIALS.has(code)){ slowBusy = false; slowQ.length = 0; onDenied(code); return; }
+    slowPauseUntil = Date.now() + Math.min(60000, (e && e.retryAfterMs) || 20000);   // back off, then carry on
+    if ((job.tries = (job.tries || 0) + 1) < 3) slowQ.push(job);
+  }
+  slowBusy = false; setTimeout(pumpQ, 1200);
+}
+function enqueueStatus(p, fresh = true){
+  enqueue("st:" + p.id, "slack_read_user_profile", {user_id: p.id, response_format: "concise"}, res => {
+    const prev = live.statuses[p.id], next = parseStatus(textOf(res));
+    live.statuses[p.id] = next; const ti = parseTitle(textOf(res)); if (ti) p.title = ti;
+    if (live.attOk && (!prev || prev.text !== next.text || prev.emojiName !== next.emojiName)) scheduleRecompute();
+  }, {front: true, fresh});
+}
+let rrIdx = 0, rrOthers = 0;
+function statusTick(){
+  if (mode !== "live" || !mcpRef || document.hidden) return;
+  if (slowQ.some(j => j.key.startsWith("st:"))) return;           // one status read in flight at a time
+  const inStudio = people.filter(p => live.att[p.id] && live.att[p.id].in);
+  if (inStudio.length && (rrOthers++ % 15)) enqueueStatus(inStudio[rrIdx++ % inStudio.length]);
+  else { const rest = people.filter(p => !(live.att[p.id] && live.att[p.id].in)); if (rest.length) enqueueStatus(rest[rrIdx++ % rest.length]); }
+}
+function queueStatuses(){
+  // People who are checked in first: their status decides where they sit.
+  const order = [...people].sort((a, b) => ((live.att[b.id] && live.att[b.id].in) ? 1 : 0) - ((live.att[a.id] && live.att[a.id].in) ? 1 : 0));
+  for (const p of order) enqueue("st:" + p.id, "slack_read_user_profile", {user_id: p.id, response_format: "concise"}, res => {
+    live.statuses[p.id] = parseStatus(textOf(res)); if (live.attOk) scheduleRecompute();
+  });
+}
+function queueSelfLines(){
+  enqueue("lines", "slack_search_public", {filters: `in:#${LINES_CHANNEL} after:${daysAgoIST(90)}`, natural_language_query: "", include_context: false, response_format: "detailed", sort: "timestamp", limit: 20},
+    res => { live.selfLines = parseLinesResults(textOf(res)); });
+}
+function queueActivity(){
+  const after = daysAgoIST(7);
+  for (const p of people) enqueue("ac:" + p.id, "slack_search_public",
+    {filters: `from:<@${p.id}> after:${after}`, natural_language_query: "", include_context: false, response_format: "concise", sort: "timestamp", limit: 20},
+    res => { Object.assign(p, parseActivity(textOf(res))); scheduleList(); });
+}
+/* ---- What people are working on: their recent public-channel activity ---- */
+const IGNORE_CH = /^_|general|random|announce|attendance|leave|fun|social|watercooler|celebrat|birthday|memes?$|^dev-talk$/i;
+function prettyChannel(ch){
+  return ch.split(/[-_]+/).filter(Boolean).map(w => w.length <= 3 ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1)).join(" ");
+}
+function cleanText(t){
+  return t.replace(/<@U[A-Z0-9]+\|([^>]+)>/g, "@$1").replace(/<@U[A-Z0-9]+>/g, "@someone").replace(/<!(channel|here|everyone)>/g, "@$1")
+          .replace(/<(https?:[^|>]+)\|([^>]+)>/g, "$2").replace(/<https?:[^>]+>/g, "link").replace(/:[\w+\-]+:/g, "").replace(/\s+/g, " ").trim();
+}
+function parseActivity(text){
+  const items = [];
+  for (const chunk of String(text).split(/\n(?=\d+\.\s+#)/)){
+    const m = /^\d+\.\s+#([\w\-.]+)\s+-\s+[^:]+:\s*([\s\S]*?)\s*(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s*IST\s*$/.exec(chunk.trim());
+    if (m) items.push({ch: m[1], text: m[2], at: m[3]});
+  }
+  const score = {};
+  const now = Date.now();
+  let latest = null;
+  for (const it of items){
+    if (IGNORE_CH.test(it.ch)) continue;
+    const age = (now - Date.parse(it.at.replace(" ", "T") + "+05:30")) / 86400000;
+    score[it.ch] = (score[it.ch] || 0) + Math.max(0.2, 1 - age/8);
+    if (!latest || it.at > latest.at) latest = it;
+  }
+  const projects = Object.keys(score).sort((a, b) => score[b] - score[a]).slice(0, 3);
+  let msg = latest ? cleanText(latest.text) : "";
+  if (msg.length > 110) msg = msg.slice(0, 107).trimEnd() + "…";
+  return {projects, project: projects[0] ? prettyChannel(projects[0]) : "", lastMsg: latest && msg ? {ch: latest.ch, text: msg} : null};
+}
+function daysAgoIST(n){
+  const d = new Date(Date.now() + 19800000 - n*86400000);
+  return d.toISOString().slice(0, 10);
+}
+function watchActivity(mcp){
+  const after = daysAgoIST(7);
+  people.forEach(p => {
+    watches.push(mcp.watchTool(SLACK, "slack_search_public",
+      {filters: `from:<@${p.id}> after:${after}`, natural_language_query: "", include_context: false, response_format: "concise", sort: "timestamp", limit: 20},
+      ev => {
+        if (mode !== "live") return;
+        if (ev.type === "error"){ if (DENIALS.has(ev.error && ev.error.code)) return onDenied(ev.error.code); return; }
+        Object.assign(p, parseActivity(textOf(ev.result)));
+        scheduleList();
+      }, {refetchInterval: 900000, cache: {staleTime: 600000}}));
+  });
+}
+let listTimer = null;
+function scheduleList(){ if (listTimer) return; listTimer = setTimeout(() => { listTimer = null; renderList(); if (selected) select(selected); }, 500); }
+
+let rcTimer = null;
+const bootUntil = Date.now() + 35000;
+function scheduleRecompute(){ if (rcTimer) return; rcTimer = setTimeout(() => { rcTimer = null; recompute(Date.now() < bootUntil); }, 400); }
+
+/* ---------------- Demo mode (sample data, clearly labelled) ---------------- */
+function startDemo(msg){
+  watches.forEach(u => u()); watches = [];
+  mode = "demo"; setSrc("demo", "Sample data");
+  showBanner(msg || "Showing a sample office. None of these statuses are real.", false);
+  const samples = {meet:["In a meeting • Google Calendar","Client call","Huddle"], away:["BRB","Lunch","Coffee run"], focus:["Heads down on a deck","Focus time"], desk:[""]};
+  const hr = istHour();
+  people.forEach((p, k) => {
+    const h = hash(p.id + "demo"), r = h % 100;
+    let st = r < 50 ? "desk" : r < 60 ? "focus" : r < 72 ? "meet" : r < 82 ? "away" : r < 88 ? "leave" : r < 94 ? "notin" : "out";
+    if (hr < 9 && st !== "leave") st = "notin";
+    p.state = st; p.liveState = st;
+    const mins = 30 + (h >>> 5) % 100; p.checkin = ["desk","focus","meet","away","out"].includes(st) ? `${8 + Math.floor(mins/60)}:${String(mins%60).padStart(2,"0")} AM` : null;
+    p.checkout = st === "out" ? "5:40 PM" : null;
+    const pool = samples[st]; p.statusText = pool ? pool[(h>>>9) % pool.length] : ""; p.statusEmoji = "";
+    const inMin = p.checkin ? toMin(p.checkin) : null, nm = nowMin();
+    p.events = inMin !== null ? [{dir:"in", min:inMin, time:p.checkin}] : [];
+    if (st === "out" && inMin !== null){ const om = Math.max(inMin + 60, Math.min(nm - 20, 17*60 + 40)); p.events.push({dir:"out", min:om, time: fmtMin(om)}); p.checkout = fmtMin(om); }
+    p.demoSegs = [];
+    if ((h >>> 20) % 10 < 4) p.demoSegs.push({from: 780 + (h % 30), to: 820 + (h % 30), state:"away", text:"Lunch"});
+    if ((h >>> 23) % 10 < 3) p.demoSegs.push({from: 660 + (h % 4)*15, to: 705 + (h % 4)*15, state:"meet", text:"Client call"});
+    const demoProj = ["sample-rebrand","sample-website","sample-pitch","sample-campaign","sample-app"];
+    p.projects = [demoProj[(h>>>12) % demoProj.length]]; p.project = prettyChannel(p.projects[0]); p.lastMsg = null;
+  });
+  assignSeats(true); renderHud(); renderList(); demoSlides(); renderMarks();
+  // occasionally shuffle one person so the office feels alive
+  clearInterval(startDemo.t);
+  startDemo.t = setInterval(() => {
+    if (mode !== "demo" || scrubMin !== null) return;
+    const inStudio = people.filter(p => ["desk","focus","meet","away"].includes(p.state));
+    const p = inStudio[Math.floor(Math.random()*inStudio.length)]; if (!p) return;
+    const opts = ["desk","meet","away","desk","focus"]; p.state = opts[Math.floor(Math.random()*opts.length)]; p.liveState = p.state;
+    p.statusText = (samples[p.state] || [""])[0];
+    assignSeats(false); renderHud(); renderList();
+  }, 9000);
+}
+
+/* ---------------- HUD + list ---------------- */
+const chipsEl = document.getElementById("chips"), listEl = document.getElementById("list");
+function counts(){
+  const c = {}; for (const p of people){ const g = STATES[p.state].group; c[g] = (c[g] || 0) + 1; } return c;
+}
+function renderHud(){
+  const c = counts(); chipsEl.innerHTML = "";
+  for (const g of GROUP_ORDER){ if (!c[g]) continue; const s = document.createElement("span"); s.className = "chip"; const i = document.createElement("i"); i.style.background = GROUP_COLOR[g]; const b = document.createElement("b"); b.textContent = c[g]; s.append(i, b, document.createTextNode(" " + g.toLowerCase())); chipsEl.append(s); }
+  document.getElementById("teamCount").textContent = `${people.length} people`;
+  for (const c of celebrationsToday()){ const sp = document.createElement("span"); sp.className = "chip"; sp.textContent = (c.type === "bday" ? `🎂 ${firstName(c.p)}'s birthday` : `🎉 ${firstName(c.p)}${c.years ? ` · ${c.years} yrs` : "'s anniversary"}`) + (c.on ? ` (${c.on.slice(0, 3)})` : ""); chipsEl.prepend(sp); }
+}
+const avatarCache = {};
+function avatar(p){
+  if (avatarCache[p.id]) return avatarCache[p.id];
+  const c = document.createElement("canvas"); c.width = 16; c.height = 16; const g = c.getContext("2d");
+  g.translate(0, 0); drawSprite(g, p, 8, 16, "down", true, 0, false);
+  return (avatarCache[p.id] = c.toDataURL());
+}
+function renderList(){
+  const groups = {}; for (const p of people){ const g = STATES[p.state].group; (groups[g] = groups[g] || []).push(p); }
+  listEl.innerHTML = "";
+  for (const g of GROUP_ORDER){
+    const arr = groups[g]; if (!arr) continue;
+    const sec = document.createElement("section"); sec.className = "group";
+    const h = document.createElement("h4"); const i = document.createElement("i"); i.style.background = GROUP_COLOR[g]; h.append(i, document.createTextNode(`${g} · ${arr.length}`)); sec.append(h);
+    arr.sort((a, b) => a.name.localeCompare(b.name)).forEach(p => {
+      const b = document.createElement("button"); b.className = "person"; if (selected === p.id) b.setAttribute("aria-current", "true");
+      const img = document.createElement("img"); img.className = "av"; img.alt = ""; img.src = avatar(p);
+      const nm = document.createElement("span"); nm.className = "nm"; const n = document.createElement("b"); n.textContent = p.name; const sm = document.createElement("small");
+      sm.textContent = p.state === "leave" ? "On leave today" : p.state === "notin" ? "—" : p.state === "out" ? `Checked out ${p.checkout || ""}` : (p.statusText || (p.project ? "On " + p.project : STATES[p.state].label));
+      nm.append(n, sm);
+      const t = document.createElement("span"); t.className = "t"; t.textContent = ["desk","focus","remote","meet","away"].includes(p.state) ? (p.checkin || "") : "";
+      b.append(img, nm, t);
+      b.onclick = () => { select(p.id); focusOn(p); };
+      sec.append(b);
+    });
+    listEl.append(sec);
+  }
+}
+function focusOn(p){
+  const pt = p.pos || {x: p.desk.seat.x, y: p.desk.seat.y};
+  if (zoom < 1.8) zoom = 1.8;
+  const s = scale(); pan.x = -(pt.x - WW/2) * s; pan.y = -(pt.y - WH/2) * s; clampPan();
+}
+
+/* ---------------- Sprites ---------------- */
+function drawSprite(c, p, x, y, face, seated, t, moving){
+  const L = p.look; x = Math.round(x); y = Math.round(y);
+  const H = seated ? 14 : 18, top = y - H;
+  const R = (a, b, w, h, col) => { c.fillStyle = col; c.fillRect(a, b, w, h); };
+  const OL = "#2a2230";
+  if (!seated){ R(x-5, y-1, 10, 2, "rgba(0,0,0,.2)"); }
+  // outline
+  R(x-5, top-1, 10, 9, OL); R(x-6, top+6, 12, seated ? 9 : 9, OL);
+  if (!seated){
+    const step = moving ? Math.floor(t/140) % 2 : 0;
+    R(x-5, top+14, 10, 4, OL);
+    R(x-4, top+14, 3, step ? 3 : 4, L.pants); R(x+1, top+14, 3, step ? 4 : 3, L.pants);
+  }
+  // body
+  R(x-5, top+7, 10, 7, L.shirt); R(x-5, top+12, 10, 2, shade(L.shirt, .8));
+  const typing = p.anim === "type" && !moving;
+  const tb = typing ? Math.floor((t + p.phase)/220) % 2 : 0;
+  R(x-6, top+8, 1, 4, shade(L.shirt, .75)); R(x+5, top+8, 1, 4, shade(L.shirt, .75));
+  if (face === "down"){ R(x-6, top+12 - tb, 1, 1, L.skin); R(x+5, top+12 - (1-tb)*(typing?1:0), 1, 1, L.skin); }
+  // head
+  if (face === "down"){
+    R(x-4, top, 8, 3, L.hair); R(x-4, top+2, 8, 5, L.skin); R(x-4, top+2, 1, 2, L.hair); R(x+3, top+2, 1, 2, L.hair); R(x-3, top+2, 3, 1, L.hair);
+    if (L.long){ R(x-5, top+1, 1, 8, L.hair); R(x+4, top+1, 1, 8, L.hair); }
+    const blink = Math.floor((t + p.phase*7)/180) % 22 === 0;
+    R(x-2, top+4, 1, blink ? 1 : 2, "#1a1620"); R(x+1, top+4, 1, blink ? 1 : 2, "#1a1620");
+    if (L.glasses){ R(x-3, top+4, 3, 1, "#2a2230"); R(x+1, top+4, 3, 1, "#2a2230"); }
+    R(x-1, top+6, 2, 1, shade(L.skin, .82));
+  } else {
+    R(x-4, top, 8, 7, L.hair); R(x-4, top, 8, 1, shade(L.hair, 1.4));
+    if (L.long) R(x-4, top+7, 8, 3, L.hair); else { R(x-5, top+3, 1, 2, L.skin); R(x+4, top+3, 1, 2, L.skin); }
+  }
+}
+
+/* ---------------- Frame loop ---------------- */
+const bubbles = new Map(); let lastBubble = 0, nextDeskBubble = 4000, lastT = performance.now();
+const WORK_WORDS = ["Work!", "Nice!", "Hmm…", "Ship it!", "Kerning…", "Idea!", "Done!"];
+function tick(t){
+  const dt = Math.min(0.05, (t - lastT)/1000); lastT = t;
+  // movement
+  for (const p of people){
+    if (!p.visible) continue;
+    p.anim = null;
+    if (p.path.length){
+      let speed = (playing ? 190 : 70) * dt;
+      while (speed > 0 && p.path.length){
+        const q = p.path[0], dx = q.x - p.pos.x, dy = q.y - p.pos.y, d = Math.hypot(dx, dy);
+        if (d <= speed){ p.pos = {x:q.x, y:q.y}; p.path.shift(); speed -= d; }
+        else { p.pos.x += dx/d*speed; p.pos.y += dy/d*speed; speed = 0; p.walkFace = Math.abs(dy) > Math.abs(dx) ? (dy > 0 ? "down" : "up") : p.walkFace || "down"; }
+      }
+      if (!p.path.length && p.leaving){ p.visible = false; p.leaving = false; p.pos = null; }
+      if (!p.path.length && p.detour && p.detour.phase === "going"){ p.detour.phase = "talking"; p.detour.until = t + p.detour.talkMs; if (p.detour.say){ bubbles.set(p.id, {text: said(p.detour.say), until: t + 3200}); } }
+      else if (!p.path.length && p.detour && p.detour.phase === "returning"){ p.detour = null; }
+    } else if (p.detour){
+      if (p.detour.phase === "talking" && t > p.detour.until){
+        p.detour.phase = "returning"; endConvo(p.id);
+        if (p.seat) p.path = route(p.pos, {x: p.seat.x, y: p.seat.y}); else { p.detour = null; moveTo(p, null, false); }
+      }
+    } else if (p.seat && p.seat.pool === "desk" && ["desk","focus","remote"].includes(p.state)) p.anim = "type";
+    if (p.detour && p.detour.phase === "talking" && p.detour.spot && p.detour.spot.laptop) p.anim = "type";
+  }
+  wander(t); talk(t); gardenTime(t);
+  // pop-up bubbles: what people are working on (falls back to a little work chatter)
+  for (const [id, b] of bubbles) if (t > b.until) bubbles.delete(id);
+  if (!reduced && t > nextDeskBubble && bubbles.size < 1){
+    lastBubble = t; nextDeskBubble = t + rnd(20000, 45000);  // a desk bubble every 20–45 s
+    const pool = people.filter(p => p.visible && !p.path.length && ["desk","focus","remote"].includes(p.state) && !bubbles.has(p.id));
+    if (pool.length){
+      const p = pool[Math.floor(Math.random()*pool.length)];
+      const text = deskLine(p);
+      if (text){ said(text); bubbles.set(p.id, {text, until: t + 2600 + Math.min(2000, text.length * 55)}); Sound.blip(p.pos.x); }
+    }
+  }
+  draw(t);
+  requestAnimationFrame(tick);
+}
+
+function draw(t){
+  const s = scale(), o = origin();
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = "#10121c"; ctx.fillRect(0, 0, vw, vh);
+  ctx.setTransform(s*dpr, 0, 0, s*dpr, o.x*dpr, o.y*dpr);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(stat, 0, 0);
+  drawSunShadows(simHour());
+
+  const hr = simHour();
+  const LT = lightAt(hr), night = LT.dark;
+
+  // desks: screens, lamps, lights down for absentees
+  for (const p of people){
+    const d = p.desk, top = d.side === "top";
+    const present = ["desk","focus","remote"].includes(p.state);
+    const around = ["meet","away"].includes(p.state);
+    const my = top ? d.rowY + 8 : d.rowY + 1;
+    if (present){
+      ctx.fillStyle = p.state === "focus" ? "#ffd97a" : "#86d6ff"; ctx.fillRect(d.dx+11, my+1, 10, 5);
+      ctx.fillStyle = "rgba(255,255,255,.7)"; ctx.fillRect(d.dx+12, my+2 + (Math.floor((t+p.phase*13)/400)%3), 6, 1);
+      ctx.fillStyle = "#ffe07a"; ctx.fillRect(d.dx+27, top ? d.rowY : d.rowY+13, 3, 2);
+    } else if (around){
+      ctx.fillStyle = "#35557a"; ctx.fillRect(d.dx+11, my+1, 10, 5);
+      ctx.fillStyle = "#6f9cc9"; ctx.fillRect(d.dx+12 + Math.floor((t/600 + p.phase) % 7), my+2, 2, 2);
+    } else if (p.state !== "loading"){
+      const r = d.region;
+      ctx.fillStyle = p.state === "leave" ? "rgba(14,16,34,.62)" : "rgba(14,16,34,.46)";
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+      if (p.state === "leave"){ // pushed-in chair outline + sticky note
+        ctx.fillStyle = "#f5d54a"; ctx.fillRect(d.dx+4, top ? d.rowY+3 : d.rowY+8, 5, 5);
+      }
+    }
+  }
+
+  // studio TV screen (animated preview of the current slide)
+  { const tx = TV_RECT.x + 2, ty = TV_RECT.y + 2, w = TV_RECT.w - 4, h = 18;
+    const sl = tvSlides[tvIdx % Math.max(1, tvSlides.length)];
+    ctx.fillStyle = SLIDE_COLORS[sl ? sl.type : "today"]; ctx.fillRect(tx, ty, w, h);
+    ctx.fillStyle = "rgba(0,0,0,.28)";
+    const sc = Math.floor(t/250) % 12;
+    for (let i = 0; i < 3; i++) ctx.fillRect(tx + 4, ty + 4 + i*4, Math.max(6, w - 16 - ((i*7 + sc*3) % 18)), 2);
+    if (Math.floor(t/500) % 2){ ctx.fillStyle = "#ffffff"; ctx.fillRect(tx + w - 8, ty + 6, 2, 6); ctx.fillRect(tx + w - 6, ty + 7, 2, 4); ctx.fillRect(tx + w - 4, ty + 8, 1, 2); }
+    if (tvHover){ ctx.strokeStyle = "#ffcf4a"; ctx.lineWidth = 1; ctx.strokeRect(TV_RECT.x - .5, TV_RECT.y - .5, TV_RECT.w + 1, 25); }
+  }
+
+  const celebs = celebrationsToday();
+  drawSea(ctx, t, hr);
+  drawKolam(ctx);
+  for (const p of people){ const sp = p.detour && p.detour.phase === "talking" && p.detour.spot; if (sp && sp.laptop){ ctx.fillStyle = "#2e3140"; ctx.fillRect(sp.laptop.x, sp.laptop.y, 9, 5); ctx.fillStyle = "#86d6ff"; ctx.fillRect(sp.laptop.x + 1, sp.laptop.y + 1, 7, 3); } }
+  if (celebs.length){ drawPartyCorner(ctx, t, celebs); for (const c of celebs) drawDeskCake(ctx, c.p, t); }
+
+  // characters, y-sorted (with their own sun shadows)
+  const vis = people.filter(p => p.visible && p.pos).sort((a, b) => a.pos.y - b.pos.y);
+  const sunNow = sunAt(hr);
+  if (sunNow){
+    ctx.fillStyle = `rgba(27,20,64,${sunNow.strength * 0.85})`;
+    for (const p of vis){
+      const x = Math.round(p.pos.x), y = Math.round(p.pos.y), L = Math.min(22, 12 * sunNow.len);
+      hullFill(ctx, [[x-4, y-2], [x+4, y-2], [x+4, y+1], [x-4, y+1]], sunNow.sx * L, sunNow.sy * L);
+    }
+  }
+  for (const p of vis){
+    const moving = p.path.length > 0;
+    const seatedNow = !moving && (p.detour ? !!(p.detour.spot && p.detour.spot.seated && p.detour.phase === "talking") : !!(p.seat && p.seat.seated));
+    const face = moving ? (p.walkFace || "down") : p.detour ? p.detour.face : (p.seat ? p.seat.face : "down");
+    if (p.id === selected){ ctx.fillStyle = "rgba(255,207,74,.55)"; ctx.fillRect(Math.round(p.pos.x)-8, Math.round(p.pos.y)-1, 16, 3); }
+    drawSprite(ctx, p, p.pos.x, p.pos.y, face, seatedNow, t, moving);
+    if (celebs.length && celebs.some(c => c.p === p)) drawPartyHat(ctx, p, seatedNow);
+  }
+
+  // time-of-day light (sky tint follows the sun)
+  if (LT.a > 0.005){ ctx.fillStyle = `rgba(${LT.c[0]},${LT.c[1]},${LT.c[2]},${LT.a})`; ctx.fillRect(0, 0, WW, WH); }
+  // sunrise over the sea to the east, sunset to the west
+  drawSunGlow(ctx, hr);
+  // room lights for occupied spaces once it gets dark
+  if (night > 0.12){
+    ctx.globalCompositeOperation = "lighter";
+    const pool = (x, y, r, rgb, a) => { const g = ctx.createRadialGradient(x, y, 4, x, y, r); g.addColorStop(0, `rgba(${rgb},${a})`); g.addColorStop(1, `rgba(${rgb},0)`); ctx.fillStyle = g; ctx.fillRect(x-r, y-r, 2*r, 2*r); };
+    CLUSTERS.forEach((cl, ci) => { const n = people.filter(p => p.desk.ci === ci && ["desk","focus","remote"].includes(p.state)).length; if (n) pool(cl.cx*T + 2*T, cl.cy*T + T, 60, "255,226,160", Math.min(.3, .1 + n*.05) * night); });
+    const where = pfx => people.filter(p => p.visible && p.seat && p.seat.where && p.seat.where.startsWith(pfx)).length;
+    PODS.forEach((px, i) => { if (where(`Meet pod ${i+1}`)) pool(px*T + 1.5*T, 4*T, 34, "215,225,255", .32*night); });
+    if (where("Boardroom")) pool(49.5*T, 10.5*T, 90, "235,235,255", .26*night);
+    if (where("Lounge")) pool(49*T, 23*T, 100, "255,190,130", .22*night);
+    if (where("Pantry")) pool(11.5*T, 13.5*T, 80, "255,240,200", .22*night);
+    if (where("Library")) pool(11.5*T, 24.5*T, 64, "255,210,150", .22*night);
+    // fairy lights over the outdoor deck, the porch lamp, boardwalk lamps, the fire pit
+    for (let x = 7*T; x < 15.8*T; x += 10){ const yy = 0.3*T + Math.sin((x - 7*T) / (8.8*T) * Math.PI) * 6; pool(x, yy, 9, "255,220,140", .5*night); ctx.fillStyle = `rgba(255,236,170,${night})`; ctx.fillRect(Math.round(x), Math.round(yy), 2, 2); }
+    pool(58.4*T, 29.4*T, 30, "255,210,140", .3*night);
+    for (const x of BOARDWALK_LAMPS) pool(x, 38.6*T, 30, "255,214,140", .34*night);
+    pool(8*T, 37*T, 20, "255,210,140", .3*night); pool(10*T, 37*T, 20, "255,210,140", .3*night);
+    pool(FIRE.x, FIRE.y - 3, 40 + Math.sin(t / 90) * 3, "255,150,60", .42*night);
+    pool(TV_RECT.x + TV_RECT.w/2, TV_RECT.y + 14, 36, "120,180,255", .18*night);
+    ctx.globalCompositeOperation = "source-over";
+  }
+  // warm desk-lamp glow for people at their desks
+  ctx.globalCompositeOperation = night > .3 ? "lighter" : "source-over";
+  for (const p of people){
+    if (!["desk","focus","remote"].includes(p.state)) continue;
+    const d = p.desk, cx = d.dx + T + 4, cy = d.rowY + 8;
+    const g = ctx.createRadialGradient(cx, cy, 2, cx, cy, 26);
+    const a = night > .3 ? 0.28*night : 0.10;
+    g.addColorStop(0, `rgba(255,214,120,${a})`); g.addColorStop(1, "rgba(255,214,120,0)");
+    ctx.fillStyle = g; ctx.fillRect(cx-26, cy-26, 52, 52);
+  }
+  ctx.globalCompositeOperation = "source-over";
+
+  // ---- screen-space overlay: zone labels, names, bubbles ----
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const fs = Math.max(8, Math.min(13, Math.round(s * 3.6)));
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.font = `${fs}px Silkscreen, monospace`;
+  const label = (txt, wx, wy, col) => { const q = toScreen(wx, wy); ctx.fillStyle = col; ctx.fillText(txt, Math.round(q.x), Math.round(q.y)); };
+  label("become®", 30*T, 1.5*T, "#f7efdc");
+  PODS.forEach((px, i) => label(`POD ${i+1}`, px*T + 1.5*T, 1.5*T, "#5e4a3b"));
+  label("BOARDROOM", 49.5*T, 13.4*T, "#5d6d8a");
+  label("LOUNGE", 49.5*T, 16.6*T, "#f7e0c8");
+  label("PANTRY", 11.5*T, 8.5*T, "#8a7a66");
+  label("LIBRARY", 11.5*T, 20.6*T, "#8a6a4e");
+  label("ENTRANCE", 56.4*T, 29.3*T, "#f7e0c8");
+  label("OUTDOOR DECK", 11.3*T, 6.6*T, "#6d4c37"); label("LILY POND", POND.x, 36.9*T, "#3f6a3a");
+  label("SEA DECK", 23.5*T, 45.5*T, "#8a5a33"); label("BEACH", 4.5*T, 45.4*T, "#a8864a");
+  label("STUDIO TV", TV_RECT.x + TV_RECT.w/2, TV_RECT.y - 7, tvHover ? "#ffcf4a" : "#8a6a4e");
+  if (celebs.length){ ctx.save(); const bt = bannerText(celebs), bs = Math.max(7, Math.min(11, Math.round(s * 2.2))); ctx.font = `${bs}px Silkscreen, monospace`; let fit = bs; while (fit > 5 && ctx.measureText(bt).width > (5*T - 6) * s){ fit--; ctx.font = `${fit}px Silkscreen, monospace`; } label(bt, 46*T, 32.3*T + 5, "#fff4e0"); ctx.restore(); }
+
+  const names = showNames();
+  ctx.font = `${Math.max(10, Math.min(13, Math.round(s*3.4)))}px "Pixelify Sans", system-ui, sans-serif`;
+  for (const p of vis){
+    const sitting = !p.path.length && (p.detour ? !!(p.detour.spot && p.detour.spot.seated && p.detour.phase === "talking") : !!(p.seat && p.seat.seated));
+    const q = toScreen(p.pos.x, p.pos.y - (sitting ? 14 : 18));
+    let bub = null;
+    if (!p.path.length){
+      if (p.state === "meet") bub = "On a call";
+      else if (p.state === "away") bub = p.statusEmoji || (isFood(p) ? "🍽️" : "☕");
+      else if (p.state === "focus") bub = "🎯";
+      else if (p.state === "remote") bub = "🏠";
+    }
+    const pb = bubbles.get(p.id); if (pb && !p.path.length) bub = pb.text;
+    if (projectsAll && p.project && !p.path.length){ const pj = p.project.length > 12 ? p.project.slice(0, 11) + "…" : p.project; bub = p.state === "meet" ? "📞 " + pj : p.state === "away" ? "☕ " + pj : pj; }
+    if (bub) drawBubble(bub, q.x, q.y - 6, s);
+    if (names || p.id === selected){
+      const nm = p.name.split(" ")[0];
+      const w = ctx.measureText(nm).width + 8, yy = Math.round(q.y + (sitting ? 16 : 20) * s + 8);
+      ctx.fillStyle = p.id === selected ? "#ffcf4a" : "rgba(22,25,38,.82)"; ctx.fillRect(Math.round(q.x - w/2), yy - 8, Math.round(w), 16);
+      ctx.fillStyle = p.id === selected ? "#2e2530" : "#eef0f8"; ctx.fillText(nm, Math.round(q.x), yy);
+    }
+  }
+  // names for absent desks when names are on
+  if (names){
+    ctx.globalAlpha = .7;
+    for (const p of people){
+      if (p.visible || p.state === "loading") continue;
+      const d = p.desk, q = toScreen(d.dx + T, d.side === "top" ? (d.cy-1)*T + 6 : (d.cy+2)*T + 8);
+      ctx.fillStyle = "#a4aaca"; ctx.fillText(p.name.split(" ")[0], Math.round(q.x), Math.round(q.y));
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+function drawBubble(text, x, y, s){
+  const isEmoji = /\p{Extended_Pictographic}/u.test(text) && text.length <= 3;
+  ctx.font = isEmoji ? `${Math.max(11, Math.round(s*4))}px system-ui, sans-serif` : `${Math.max(9, Math.min(12, Math.round(s*3.2)))}px Silkscreen, monospace`;
+  const w = Math.round(ctx.measureText(text).width + 10), h = isEmoji ? Math.max(16, Math.round(s*5.5)) : Math.max(15, Math.round(s*4.8));
+  const bx = Math.round(x - w/2), by = Math.round(y - h - 4);
+  ctx.fillStyle = "#2e2530"; ctx.fillRect(bx-2, by, w+4, h); ctx.fillRect(bx, by-2, w, h+4);
+  ctx.fillStyle = "#f7efdc"; ctx.fillRect(bx, by, w, h);
+  ctx.fillStyle = "#2e2530"; ctx.fillRect(Math.round(x)-2, by+h+2, 4, 2); ctx.fillRect(Math.round(x)-1, by+h+4, 2, 2);
+  ctx.fillStyle = "#f7efdc"; ctx.fillRect(Math.round(x)-1, by+h, 2, 2);
+  ctx.fillStyle = "#2e2530"; ctx.fillText(text, Math.round(x), Math.round(by + h/2 + 1));
+}
+
+/* ---------------- The sea: waves, sparkle, a boat, a crab, the fire ---------------- */
+function drawSea(c, t, hr){
+  const still = reduced ? 0 : 1;
+  const wash = still ? (Math.sin(t / 2100) + 1) / 2 : .5;             // the waterline breathes in and out
+  const top = SEA_Y - 2 - wash * 10;
+  c.fillStyle = "rgba(74,164,216,.6)"; c.fillRect(0, top, WW, SEA_Y - top + 2);
+  c.fillStyle = "rgba(255,255,255,.85)";
+  for (let x = 0; x < WW; x += 3){ const y = top + Math.sin(x / 23 + t * still / 700) * 1.5 + Math.sin(x / 61 - t * still / 1300) * 1.2; c.fillRect(x, Math.round(y), 3, 2); }
+  c.fillStyle = "rgba(255,255,255,.3)";
+  for (let k = 0; k < 4; k++){
+    const ph = ((t * still / 5200 + k / 4) % 1), y = WH - 4 - ph * (WH - SEA_Y - 12);
+    for (let x = (k * 37) % 48; x < WW; x += 48){ const w = 12 + ((x * 7 + k * 13) % 12); c.fillRect(Math.round(x + Math.sin(t * still / 900 + x) * 2), Math.round(y), w, 1); }
+  }
+  const sun = sunAt(hr);
+  if (sun){
+    c.fillStyle = "rgba(255,255,240,.85)";
+    for (let i = 0; i < 22; i++){ const h = hash("sp" + i), f = ((t / 1100) + (h % 100) / 100) % 1; if (f < .22) c.fillRect(h % WW, SEA_Y + 10 + (h >>> 8) % (WH - SEA_Y - 14), 2, 1); }
+    // a crab on the wet sand
+    const cx = Math.round(36*T + Math.sin(t * still / 6000) * 5*T), cy = Math.round(SEA_Y - 0.55*T), leg = Math.floor(t / 120) % 2;
+    c.fillStyle = "#e0553a"; c.fillRect(cx - 3, cy, 7, 3); c.fillRect(cx - 5, cy - 1 - leg, 2, 2); c.fillRect(cx + 4, cy - 1 - leg, 2, 2);
+    c.fillStyle = "#b8402a"; c.fillRect(cx - 4, cy + 3, 1, 1 + leg); c.fillRect(cx + 4, cy + 3, 1, 2 - leg); c.fillStyle = "#1c1a20"; c.fillRect(cx - 1, cy - 1, 1, 1); c.fillRect(cx + 2, cy - 1, 1, 1);
+  }
+  // a fishing boat drifting along the horizon
+  const bx = Math.round(((t * still / 300) + 300) % (WW + 80) - 40), by = Math.round(WH - 1.7*T + Math.sin(t / 650) * 1.5 * still);
+  c.fillStyle = "#8a4b3a"; c.fillRect(bx - 9, by, 18, 4); c.fillStyle = "#6d3a2c"; c.fillRect(bx - 7, by + 4, 14, 2);
+  c.fillStyle = "#5a3e2c"; c.fillRect(bx, by - 13, 1, 13);
+  c.fillStyle = "#f7efdc"; for (let i = 0; i < 10; i++) c.fillRect(bx + 1, by - 12 + i, Math.max(1, i * 0.8), 1);
+  // the fire pit is lit from dusk
+  if (hr >= 17.6 || hr < 5.4){
+    const fl = still ? Math.floor(t / 110) % 3 : 1;
+    c.fillStyle = "#ff7a2f"; c.fillRect(FIRE.x - 4, FIRE.y - 6 - fl, 8, 5 + fl);
+    c.fillStyle = "#ffcf4a"; c.fillRect(FIRE.x - 2, FIRE.y - 5 - (2 - fl), 4, 4);
+    c.fillStyle = "#fff4c8"; c.fillRect(FIRE.x - 1, FIRE.y - 3, 2, 2);
+  }
+}
+function drawSunGlow(c, hr){
+  const bell = (m, w) => Math.max(0, 1 - Math.abs(hr - m) / w);
+  const dawn = bell(6.35, 1.35), dusk = bell(18.05, 1.1);
+  for (const [a, x, up] of [[dawn, WW - 7*T, hr - 5.2], [dusk, 7*T, 19.1 - hr]]){
+    if (a < 0.02) continue;
+    const gy = WH + T, r = 30*T;
+    c.globalCompositeOperation = "lighter";
+    const g = c.createRadialGradient(x, gy, 10, x, gy, r);
+    g.addColorStop(0, `rgba(255,150,70,${0.5*a})`); g.addColorStop(.35, `rgba(255,120,70,${0.22*a})`); g.addColorStop(1, "rgba(255,110,70,0)");
+    c.fillStyle = g; c.fillRect(x - r, gy - r, 2*r, r);
+    c.globalCompositeOperation = "source-over";
+    // the sun itself on the horizon, and its path of light on the water
+    const sy = WH + 10 - Math.max(0, Math.min(1, up / 1.6)) * 2.6*T;
+    c.save(); c.beginPath(); c.rect(0, SEA_Y, WW, WH - SEA_Y); c.clip();
+    c.fillStyle = `rgba(255,190,90,${Math.min(1, a * 1.4)})`; c.beginPath(); c.arc(x, sy, 1.3*T, 0, Math.PI*2); c.fill();
+    c.fillStyle = `rgba(255,236,170,${0.8*a})`;
+    for (let y = SEA_Y + 4, i = 0; y < sy - 1.3*T; y += 4, i++){ const w = 4 + (y - SEA_Y) / 3, o = hash("gl" + i) % 9 - 4; c.fillRect(Math.round(x - w/2 + o), y, Math.round(w * (0.4 + (i % 3) * 0.2)), 1); }
+    c.restore();
+  }
+}
+
+/* ---------------- Sun path, shadows and sky light ---------------- */
+const CASTERS = [];
+function buildCasters(){
+  const c = (x, y, w, h, z) => CASTERS.push({x, y, w, h, z});
+  CLUSTERS.forEach(({cx, cy}) => c(cx*T-1, cy*T-1, 4*T+2, 2*T+3, 7));
+  PODS.forEach(px => c(px*T, 2*T, 3*T, 4*T, 24));
+  for (const [a, b] of [[2, 9], [11, 25], [27, 37]]) c(40*T+3, a*T, T-6, (b-a)*T, 34);
+  for (const [a, b] of [[2, 18], [20, 37]]) c(17*T+3, a*T, T-6, (b-a)*T, 34);
+  for (const [a, b] of [[9, 18], [20, 30]]) c(5*T+3, a*T, T-6, (b-a)*T, 34);
+  c(5*T, 7.5*T, 12.7*T, 1.5*T, 40); c(5*T, 30*T+3, 12.7*T, T-6, 34);
+  c(41*T, 15*T+3, 7*T, T-6, 34); c(50*T, 15*T+3, 9*T, T-6, 34);
+  c(17*T, 0, 43*T, 2*T, 40); c(59*T, 0, T, 30*T, 40); c(59*T, 32*T, T, 6*T, 40);
+  c(17*T, 37*T, 12*T, T, 40); c(31*T, 37*T, 29*T, T, 40);
+  outdoorCasters(c);
+  c(46*T, 9*T, 7*T, 2*T, 7);
+  c(45*T, 20*T-4, 5*T, T+8, 10); c(45*T, 25*T+4, 5*T, T+8, 10); c(46*T, 22*T+6, 3*T, 2*T-4, 5);
+  c(52*T, 21*T+2, 24, 20, 10); c(52*T, 23*T+10, 24, 20, 10);
+  c(59*T-6, 20*T, 6, 5*T, 14); c(56.3*T, 33.5*T, 2*T, 2*T, 26);
+  c(6*T, 20.4*T, T, 8.4*T, 28); c(7*T, 28.6*T, 10*T, T+2, 20);
+  for (const [x, y] of BEANS) c(x-9, y-9, 18, 13, 6);
+  c(6*T, 9*T, 9.5*T, 1.6*T, 12); c(15.7*T, 8.7*T, T+2, 3*T, 30); c(8*T+8, 13*T+2, 5*T, T+4, 10);
+  c(TV_RECT.x, TV_RECT.y, TV_RECT.w, 34, 14);
+  for (const [x, y, big] of HALL_PLANTS){ const sc = big ? 1.4 : 1; c(x - 7*sc, y - 14*sc, 14*sc, 14*sc + 4, big ? 22 : 16); }
+  c(39*T-2, 5*T, 12, 19, 16); c(39*T-4, 12*T, 18, 14, 10);
+}
+function sunAt(h){
+  const rise = 6.1, set = 18.2;
+  if (h <= rise || h >= set) return null;
+  const f = (h - rise) / (set - rise);
+  const elev = Math.sin(Math.PI * f) * 76 + 2;                 // degrees above the horizon
+  const len = Math.min(3.2, 1 / Math.tan(elev * Math.PI / 180)); // shadow length per unit height
+  let sx = -Math.cos(Math.PI * f), sy = -0.38;                  // east→west arc, sun a touch south in September
+  const n = Math.hypot(sx, sy); sx /= n; sy /= n;
+  const strength = 0.34 * Math.min(1, elev / 14);
+  return {sx, sy, len, strength, elev};
+}
+function hullFill(g, pts, ox, oy){
+  const all = pts.concat(pts.map(([x, y]) => [x + ox, y + oy])).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) => (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0]);
+  const lo = [], up = [];
+  for (const p of all){ while (lo.length >= 2 && cross(lo[lo.length-2], lo[lo.length-1], p) <= 0) lo.pop(); lo.push(p); }
+  for (let i = all.length - 1; i >= 0; i--){ const p = all[i]; while (up.length >= 2 && cross(up[up.length-2], up[up.length-1], p) <= 0) up.pop(); up.push(p); }
+  const hull = lo.slice(0, -1).concat(up.slice(0, -1));
+  g.beginPath(); hull.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill();
+}
+const shadowCv = document.createElement("canvas"); shadowCv.width = WW; shadowCv.height = WH;
+let shadowKey = "";
+function drawSunShadows(h){
+  const sun = sunAt(h); if (!sun) return;
+  const key = (Math.round(h * 20) / 20).toFixed(2);
+  if (key !== shadowKey){
+    shadowKey = key;
+    const g = shadowCv.getContext("2d"); g.clearRect(0, 0, WW, WH);
+    g.fillStyle = "#1b1440";
+    for (const o of CASTERS){ const L = o.z * sun.len; hullFill(g, [[o.x, o.y], [o.x+o.w, o.y], [o.x+o.w, o.y+o.h], [o.x, o.y+o.h]], sun.sx * L, sun.sy * L); }
+    g.globalCompositeOperation = "destination-out";
+    for (const o of CASTERS) g.fillRect(o.x, o.y, o.w, o.h);
+    g.fillRect(0, 0, WW, 2*T);
+    g.globalCompositeOperation = "source-over";
+  }
+  ctx.globalAlpha = sun.strength; ctx.drawImage(shadowCv, 0, 0); ctx.globalAlpha = 1;
+}
+const SKY = [
+  {h:0,    c:[10,14,42],   a:.62, d:1},
+  {h:5.2,  c:[10,14,42],   a:.60, d:1},
+  {h:6.1,  c:[90,55,110],  a:.38, d:.7},
+  {h:7,    c:[255,150,90], a:.15, d:.12},
+  {h:8.5,  c:[255,205,150],a:.04, d:0},
+  {h:12,   c:[255,255,255],a:0,   d:0},
+  {h:16,   c:[255,215,150],a:.04, d:0},
+  {h:17.4, c:[255,140,60], a:.17, d:.1},
+  {h:18.3, c:[130,60,120], a:.34, d:.5},
+  {h:19.2, c:[22,22,62],   a:.52, d:.9},
+  {h:24,   c:[10,14,42],   a:.62, d:1}];
+function lightAt(h){
+  let i = 0; while (i < SKY.length - 2 && SKY[i+1].h <= h) i++;
+  const A = SKY[i], B = SKY[i+1], f = Math.max(0, Math.min(1, (h - A.h) / (B.h - A.h)));
+  const mix = (x, y) => x + (y - x) * f;
+  return {c: A.c.map((v, k) => Math.round(mix(v, B.c[k]))), a: mix(A.a, B.a), dark: mix(A.d, B.d)};
+}
+
+/* ---------------- 24-hour replay ---------------- */
+let scrubMin = null, playing = false, playTimer = null;
+function nowMin(){ const d = new Date(Date.now() + 19800000); return d.getUTCHours()*60 + d.getUTCMinutes(); }
+function fmtMin(m){ m = Math.max(0, Math.min(1439, Math.round(m))); const h = Math.floor(m/60), mm = m % 60; return `${(h % 12) || 12}:${String(mm).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`; }
+function simHour(){ return scrubMin === null ? istHour() : scrubMin / 60; }
+function stateAt(p, m){
+  const now = nowMin(), live = p.liveState || p.state;
+  if (m >= now - 1) return live;                                    // the present
+  const ev = (p.events || []).filter(e => e.min <= m);
+  if (!ev.length) return live === "leave" ? "leave" : "notin";
+  if (ev[ev.length - 1].dir === "out") return "out";
+  if (mode === "demo" && p.demoSegs){ const seg = p.demoSegs.find(sg => m >= sg.from && m < sg.to); if (seg) return seg.state; }
+  if (now - m <= 15 && ["desk","focus","remote","meet","away"].includes(live)) return live;
+  return "desk";
+}
+const timeInput = document.getElementById("time"), scrubTime = document.getElementById("scrubTime"), recapEl = document.getElementById("recap");
+const liveBtn = document.getElementById("live"), playBtn = document.getElementById("play");
+const futureEl = document.getElementById("future"), nowMark = document.getElementById("nowmark"), marksEl = document.getElementById("marks");
+function allEvents(){
+  const ev = []; for (const p of people) for (const e of (p.events || [])) ev.push({...e, p}); return ev.sort((a, b) => a.min - b.min);
+}
+function renderMarks(){
+  marksEl.innerHTML = "";
+  for (const e of allEvents()){ const i = document.createElement("i"); if (e.dir === "out") i.className = "o"; i.style.left = (e.min / 1440 * 100) + "%"; marksEl.append(i); }
+}
+function updateScrubUI(){
+  const nm = nowMin(), pct = nm / 1440 * 100;
+  nowMark.style.left = pct + "%"; futureEl.style.left = pct + "%";
+  if (scrubMin === null){
+    timeInput.value = String(nm); scrubTime.textContent = "LIVE · " + fmtMin(nm);
+    recapEl.textContent = "Drag the bar to replay today";
+    liveBtn.setAttribute("aria-pressed", "true"); return;
+  }
+  liveBtn.setAttribute("aria-pressed", "false");
+  const c = counts(), inS = c["In studio"] || 0, calls = c["In a meeting"] || 0, away = c["Away from desk"] || 0;
+  scrubTime.textContent = fmtMin(scrubMin);
+  const past = allEvents().filter(e => e.min <= scrubMin);
+  const last = past[past.length - 1];
+  const bits = [`${inS + calls + away} in`, calls ? `${calls} on calls` : "", away ? `${away} away` : ""].filter(Boolean).join(" · ");
+  recapEl.textContent = bits + (last ? ` — ${last.time} ${last.p.name.split(" ")[0]} ${last.dir === "in" ? "checked in" : "checked out"}` : " — nobody in yet");
+}
+function applyTimeline(instant){
+  if (mode === "loading") return;
+  for (const p of people) p.state = scrubMin === null ? (p.liveState || p.state) : stateAt(p, scrubMin);
+  assignSeats(instant); renderHud(); scheduleList(); updateScrubUI();
+}
+function goLive(){ stopPlay(); scrubMin = null; applyTimeline(false); }
+function stopPlay(){ playing = false; clearInterval(playTimer); playTimer = null; playBtn.textContent = "▶"; playBtn.setAttribute("aria-label", "Replay today"); }
+timeInput.addEventListener("input", () => {
+  stopPlay();
+  const nm = nowMin();
+  if (+timeInput.value >= nm){ timeInput.value = String(nm); if (scrubMin !== null){ scrubMin = null; applyTimeline(true); } return; }
+  scrubMin = +timeInput.value; applyTimeline(true);
+});
+liveBtn.onclick = goLive;
+playBtn.onclick = () => {
+  if (playing){ stopPlay(); return; }
+  const first = allEvents()[0];
+  if (scrubMin === null || scrubMin >= nowMin() - 1) scrubMin = Math.max(0, Math.min(nowMin() - 60, (first ? first.min : 480) - 30));
+  applyTimeline(true);
+  playing = true; playBtn.textContent = "❚❚"; playBtn.setAttribute("aria-label", "Pause replay");
+  playTimer = setInterval(() => {
+    scrubMin += 2;
+    if (scrubMin >= nowMin()){ goLive(); return; }
+    timeInput.value = String(scrubMin); applyTimeline(reduced);
+  }, 90);
+};
+setInterval(updateScrubUI, 30000);
+
+/* ---------------- Studio TV: news, wins, kudos from #_general ---------------- */
+const SLIDE_COLORS = {today:"#262b44", kudos:"#ffcf4a", launch:"#5fb4e8", win:"#6bd18a", milestone:"#f29cb6", welcome:"#b69cf0", news:"#f7efdc"};
+const SLIDE_META = {
+  kudos:{kicker:"KUDOS", icon:"🏅"}, launch:{kicker:"IT'S LIVE", icon:"🚀"}, win:{kicker:"STUDIO WIN", icon:"🐘"},
+  milestone:{kicker:"MILESTONE", icon:"🎉"}, welcome:{kicker:"NEW FACE", icon:"👋"}, news:{kicker:"STUDIO NEWS", icon:"📣"}, today:{kicker:"TODAY IN THE STUDIO", icon:"🏢"}};
+const EMO_TXT = {confetti_ball:"🎊", tada:"🎉", heart:"❤️", white_heart:"🤍", grey_heart:"🩶", black_heart:"🖤", yellow_heart:"💛", rocket:"🚀", fire:"🔥", eyes:"👀", elephant:"🐘", boom:"💥", sunny:"☀️", point_down:"👇", clap:"👏", raised_hands:"🙌", star:"⭐", sparkles:"✨", trophy:"🏆"};
+let tvSlides = [], tvIdx = 0, tvHover = false, generalMsgs = [];
+function tvClean(t){
+  return String(t)
+    .replace(/<#C[A-Z0-9]+\|([^>]+)>/g, "#$1").replace(/<#C[A-Z0-9]+>/g, "another project")
+    .replace(/<@U[A-Z0-9]+\|([^>]+)>/g, "$1").replace(/<@U[A-Z0-9]+>/g, "someone")
+    .replace(/<!(channel|here|everyone)>/g, "").replace(/<(https?:[^|>]+)\|([^>]+)>/g, "$2").replace(/<https?:[^>]+>/g, "")
+    .replace(/https?:\/\/\S+/g, "").replace(/^GIF Alt Text$/gm, "")
+    .replace(/:([\w+\-]+):/g, (m, n) => EMO_TXT[n] || "").replace(/[*_`~]/g, "")
+    .replace(/[ \t]+/g, " ").replace(/\n{2,}/g, "\n").trim().replace(/^[\s,.:;!\-]+/, "");
+}
+function parseGeneral(text){
+  text = String(text).replace(/^Channel:[^\n]*\n+/, "").replace(/^\s+/, "");
+  const out = []; const re = /(?:^|\n\n)([^\n]*?)(?: <[^>\s]+@[^>\s]+>)?: ([\s\S]*?) \[(\d{4}-\d{2}-\d{2}) (\d{2}):(\d{2}):\d{2} IST\]/g; let m;
+  while ((m = re.exec(String(text)))) out.push({author: m[1].trim(), raw: m[2], date: m[3]});
+  return out;
+}
+function firstSentence(s){
+  const one = s.replace(/\n/g, " ").trim();
+  const m = /^(.{12,90}?[.!?])(\s|$)/.exec(one);
+  if (m) return {title: m[1], rest: one.slice(m[1].length).trim()};
+  if (one.length <= 80) return {title: one, rest: ""};
+  const cut = one.slice(0, 80).replace(/\s+\S*$/, "");
+  return {title: cut + "…", rest: one.slice(cut.length).trim()};
+}
+const fmtDay = new Intl.DateTimeFormat("en-GB", {day:"numeric", month:"short", timeZone:"UTC"});
+function toSlide(msg){
+  const when = fmtDay.format(new Date(msg.date + "T00:00:00Z"));
+  const k = /\*?([^*\n]+?)\*? celebrated \*?([^*\n]+?)\*? for being \*?([^*\n]+?)\*?\s*\n`([\s\S]*?)`/.exec(msg.raw);
+  if (k) return {type:"kudos", title:`${k[2].trim()} is ${k[3].trim()}`, body: tvClean(k[4]), by:`From ${k[1].trim()}`, when};
+  const clean = tvClean(msg.raw);
+  if (clean.length < 12) return null;
+  let type = null;
+  if (/anniversary|years? at become|\bpromot/i.test(clean)) type = "milestone";
+  else if (/\b(it'?s live|is live|went live|now live|launched|shipped|is out|published)\b/i.test(clean)) type = "launch";
+  else if (/\bwelcome\b/i.test(clean) && /(team|aboard|join|family)/i.test(clean)) type = "welcome";
+  else if (/congrat|proud|magical|kudos|\bwins?\b|milestone|celebrat|amazing week|bringing the elephant|nailed|well done/i.test(clean)) type = "win";
+  else if (/weekly edition|newsletter|announcing|we have signed|onboarded|new client/i.test(clean)) type = "news";
+  if (!type) return null;
+  if (/salary|payroll|reimburse|invoice|password|credentials/i.test(clean)) return null;
+  const we = /weekly edition\s*(\d+)/i.exec(clean);
+  if (we) return {type:"news", title:`Become Weekly Edition ${we[1]} is out`, body:"Read it in #_general and share feedback with the editors.", by: msg.author || "Become", when};
+  const {title, rest} = firstSentence(clean);
+  return {type, title, body: rest, by: msg.author ? msg.author : "Become", when};
+}
+function buildTodaySlide(){
+  const inS = people.filter(p => ["desk","focus","remote","meet","away"].includes(p.state));
+  const calls = people.filter(p => p.state === "meet").length;
+  const firsts = inS.filter(p => p.checkin).sort((a, b) => toMin(a.checkin) - toMin(b.checkin));
+  const proj = {}; people.forEach(p => (p.projects || []).forEach((c, i) => { proj[c] = (proj[c] || 0) + (3 - i); }));
+  const top = Object.keys(proj).sort((a, b) => proj[b] - proj[a]).slice(0, 3).map(prettyChannel);
+  return {type:"today", title: mode === "loading" ? "Checking who's in…" : `${inS.length} of ${people.length} in the studio`,
+    stats: [
+      {n: String(inS.length), l: "checked in today"},
+      {n: String(calls), l: calls === 1 ? "person on a call" : "people on calls"},
+      {n: firsts[0] ? firsts[0].checkin.replace(/ ?[AP]M/, "") : "–", l: firsts[0] ? `first in · ${firsts[0].name.split(" ")[0]}` : "first in"},
+    ], body: top.length ? `Busiest this week: ${top.join(" · ")}` : "", by: mode === "demo" ? "Sample data" : "Live from Brisk + Slack", when: fmtDate.format(new Date())};
+}
+function toMin(s){ const m = /(\d+):(\d+)\s*([AP])M/.exec(s || ""); if (!m) return 9999; return (+m[1] % 12 + (m[3] === "P" ? 12 : 0))*60 + +m[2]; }
+function celebrationSlides(){
+  return celebrationsToday().map(c => c.type === "bday"
+    ? {type: "milestone", title: `Happy birthday, ${c.p.name}!`, body: c.on ? `It's on ${c.on}, so we're celebrating today. Cake's in the lounge corner 🎂` : "There's cake in the lounge corner. Go say hi 🎂", by: "The whole studio", when: c.on ? `This ${c.on}` : "Today", celebration: true}
+    : {type: "milestone", title: c.years ? `${c.years} ${c.years === 1 ? "year" : "years"} of ${c.p.name} at Become!` : `Happy work anniversary, ${c.p.name}!`, body: c.on ? `It's on ${c.on}, so we're celebrating today. Thank you for everything you bring to the studio 🎉` : "Thank you for everything you bring to the studio. Cake's in the lounge corner 🎉", by: "The whole studio", when: c.on ? `This ${c.on}` : "Today", celebration: true});
+}
+function rebuildSlides(){
+  if (mode === "demo" && tvSlides.length){ tvSlides = [buildTodaySlide(), ...celebrationSlides(), ...tvSlides.filter(x => x.type !== "today" && !x.celebration)]; return; }
+  const cutoff = new Date(Date.now() - 30*86400000).toISOString().slice(0, 10);
+  const items = generalMsgs.filter(m => m.date >= cutoff).map(toSlide).filter(Boolean).slice(0, 14);
+  const seen = new Set();
+  const uniq = items.filter(sl => { const key = sl.title.slice(0, 40); if (seen.has(key)) return false; seen.add(key); return true; });
+  const cur = tvSlides[tvIdx];
+  tvSlides = [buildTodaySlide(), ...celebrationSlides(), ...uniq];
+  if (cur){ const i = tvSlides.findIndex(x => x.title === cur.title); tvIdx = i >= 0 ? i : Math.min(tvIdx, tvSlides.length - 1); }
+}
+function demoSlides(){
+  generalMsgs = [];
+  tvSlides = [buildTodaySlide(),
+    {type:"launch", title:"Sample: the new campaign site is live.", body:"This is example content so you can see how launches look on the TV.", by:"Sample", when:"Today"},
+    {type:"kudos", title:"A teammate is Resourceful", body:"Example kudos: stepped in and turned a tricky brief around in a day.", by:"From a teammate (sample)", when:"Yesterday"},
+    {type:"win", title:"Sample: a new client signed this week.", body:"Wins from #_general appear here when Slack is connected.", by:"Sample", when:"This week"}];
+}
+
+const tvEl = document.getElementById("tv"), tvScreen = document.getElementById("tvScreen"), tvBar = document.getElementById("tvBar");
+const tvCount = document.getElementById("tvCount"), tvPause = document.getElementById("tvPause");
+const SLIDE_MS = 9000; let tvPaused = false, tvElapsed = 0, tvTimer = null, tvLastFocus = null;
+function renderSlide(){
+  if (!tvSlides.length) rebuildSlides();
+  if (tvSlides[0] && tvSlides[0].type === "today") tvSlides[0] = buildTodaySlide();
+  tvIdx = ((tvIdx % tvSlides.length) + tvSlides.length) % tvSlides.length;
+  const sl = tvSlides[tvIdx], meta = SLIDE_META[sl.type];
+  tvScreen.dataset.type = sl.type;
+  tvScreen.querySelectorAll(".slide").forEach(n => n.remove());
+  const el = document.createElement("div"); el.className = "slide";
+  const kicker = document.createElement("div"); kicker.className = "kicker"; const kb = document.createElement("b"); kb.textContent = meta.kicker; kicker.append(kb, document.createTextNode(sl.when || ""));
+  const icon = document.createElement("div"); icon.className = "icon"; icon.textContent = meta.icon; icon.setAttribute("aria-hidden", "true");
+  const h = document.createElement("h2"); h.textContent = sl.title;
+  el.append(icon, kicker, h);
+  if (sl.stats){ const g = document.createElement("div"); g.className = "stats"; sl.stats.forEach(st => { const d = document.createElement("div"); d.className = "stat"; const b = document.createElement("b"); b.textContent = st.n; const sp = document.createElement("span"); sp.textContent = st.l; d.append(b, sp); g.append(d); }); el.append(g); }
+  if (sl.body){ const b = document.createElement("p"); b.className = "body"; b.textContent = sl.body; el.append(b); }
+  const by = document.createElement("p"); by.className = "by"; const a = document.createElement("span"); a.textContent = sl.by || ""; by.append(a); el.append(by);
+  tvScreen.prepend(el);
+  tvCount.textContent = `${tvIdx + 1} / ${tvSlides.length}`;
+  tvElapsed = 0; tvBar.style.width = "0%";
+}
+function tvStep(d){ tvIdx += d; renderSlide(); }
+function openTV(){
+  Sound.jingle();
+  hideTip(); tvLastFocus = document.activeElement;
+  rebuildSlides(); tvIdx = 0; renderSlide();
+  tvEl.hidden = false; document.getElementById("tvNext").focus();
+  clearInterval(tvTimer);
+  tvTimer = setInterval(() => {
+    if (tvPaused) return;
+    tvElapsed += 100; tvBar.style.width = Math.min(100, tvElapsed / SLIDE_MS * 100) + "%";
+    if (tvElapsed >= SLIDE_MS) tvStep(1);
+  }, 100);
+}
+function closeTV(){
+  clearInterval(tvTimer); tvTimer = null;
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  tvEl.hidden = true; if (tvLastFocus && tvLastFocus.focus) tvLastFocus.focus();
+}
+document.getElementById("tvBtn").onclick = openTV;
+document.getElementById("tvPrev").onclick = () => tvStep(-1);
+document.getElementById("tvNext").onclick = () => tvStep(1);
+tvPause.onclick = () => { tvPaused = !tvPaused; tvPause.textContent = tvPaused ? "PLAY" : "PAUSE"; tvPause.setAttribute("aria-pressed", String(tvPaused)); };
+document.getElementById("tvClose").onclick = closeTV;
+document.getElementById("tvFull").onclick = () => {
+  if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); return; }
+  if (tvEl.requestFullscreen) tvEl.requestFullscreen().catch(() => {});
+};
+tvEl.addEventListener("click", e => { if (e.target === tvEl) closeTV(); });
+document.addEventListener("keydown", e => {
+  if (tvEl.hidden) return;
+  if (e.key === "Escape" && !document.fullscreenElement) closeTV();
+  else if (e.key === "ArrowRight") tvStep(1);
+  else if (e.key === "ArrowLeft") tvStep(-1);
+  else if (e.key === " " && e.target === document.body){ e.preventDefault(); tvPause.click(); }
+});
+document.addEventListener("fullscreenchange", () => { document.getElementById("tvFull").textContent = document.fullscreenElement ? "EXIT FULL SCREEN" : "FULL SCREEN"; });
+
+function watchGeneral(mcp){
+  watches.push(mcp.watchTool(SLACK, "slack_read_channel", {channel_id: CH_GENERAL, limit: 60, response_format: "concise"},
+    ev => {
+      if (mode !== "live") return;
+      if (ev.type === "error"){ if (DENIALS.has(ev.error && ev.error.code)) return onDenied(ev.error.code); return; }
+      generalMsgs = parseGeneral(textOf(ev.result));
+      rebuildSlides(); if (!tvEl.hidden) tvCount.textContent = `${tvIdx + 1} / ${tvSlides.length}`;
+    }, {refetchInterval: 600000, cache: {staleTime: 300000}}));
+}
+
+/* ---------------- Office life: wandering, chats, post-meeting catch-ups ---------------- */
+const rnd = (a, b) => a + Math.random() * (b - a);
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+// Lines said recently are held back, so the same bubble doesn't come round again for a long while.
+const recentLines = [], RECENT_MAX = 120;
+function said(t){ if (!t) return t; recentLines.push(t); if (recentLines.length > RECENT_MAX) recentLines.shift(); return t; }
+function pickFresh(arr){
+  if (!arr || !arr.length) return null;
+  const fresh = arr.filter(x => !recentLines.includes(x));
+  const pool = fresh.length ? fresh : [...arr].sort((a, b) => recentLines.lastIndexOf(a) - recentLines.lastIndexOf(b)).slice(0, 1);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+const MEET_SPOTS = [
+  {name:"water cooler", a:{x: 38*T, y: 8*T+4}, b:{x: 38*T, y: 9*T+6}},
+  {name:"whiteboard",   a:{x: 21*T, y: 2*T+14}, b:{x: 21*T, y: 3*T+14}},
+  {name:"studio TV",    a:{x: 20*T, y: 25.3*T}, b:{x: 20*T, y: 26.4*T}},
+  {name:"pantry",       a:{x: 15*T, y: 13*T}, b:{x: 15*T, y: 14*T+2}},
+  {name:"aisle",        a:{x: 30*T, y: 17*T+4}, b:{x: 30*T, y: 18*T+6}},
+  {name:"pond",         a:{x: 9*T, y: 33.2*T}, b:{x: 9*T, y: 34.3*T}},
+  {name:"neem",         a:{x: 5.2*T, y: 5.5*T}, b:{x: 5.2*T, y: 6.6*T}},
+];
+// by the sea: busier around sunset
+const SHORE_SPOTS = [
+  {name:"shore",   a:{x: 14*T, y: 44.7*T}, b:{x: 14*T, y: 45.8*T}},
+  {name:"shore",   a:{x: 31*T, y: 44.7*T}, b:{x: 31*T, y: 45.8*T}},
+  {name:"shore",   a:{x: 40*T, y: 44.7*T}, b:{x: 40*T, y: 45.8*T}},
+  {name:"bonfire", a:{x: FIRE.x, y: FIRE.y - 16}, b:{x: FIRE.x, y: FIRE.y + 18}},
+];
+const SHORE_LINES = ["Sea breeze 🌊", "Sunset walk? 🌅", "Look at that sky", "Water's warm today", "Five minutes by the sea", "Crab! 🦀", "Best office view", "Let's walk and talk"];
+const SOLO_SPOTS = [{x: 38*T, y: 8*T+4, face:"up"}, {x: 38*T, y: 11*T+10, face:"down"}, {x: 7*T+14, y: 23*T, face:"down"}, {x: 20*T, y: 25.3*T, face:"up"}, {x: 15*T, y: 11*T+4, face:"up"}, {x: 27*T, y: 45.4*T, face:"down"}];
+const CHAT = ["haha", "😂", "💬", "True!", "Wait, what?", "Coffee?", "Lunch plans?", "👀", "Nice!", "Hmm…", "Did you see that?", "LOL", "Same", "Ship it!", "Tell me more", "Right?!", "🙌", "Okay okay", "Send it over", "Sounds good"];
+const AFTER_CALL = ["Just got off the call", "That went well", "They loved it!", "Few changes…", "Notes in thread", "Phew 😮‍💨"];
+const REPLY_CALL = ["How'd it go?", "Nice!", "What did they say?", "Let's sync later", "🙌", "Told you!"];
+let nextWander = performance.now() + rnd(40000, 90000);
+const convos = [];
+function standBy(b){
+  const s = b.seat, top = s.face === "down";
+  return {x: s.x + 16, y: top ? s.y - 2 : s.y + 2, face: top ? "down" : "up"};
+}
+function startDetour(p, spot, partner, talkMs, face){
+  if (!p.pos) return;
+  p.detour = {phase: "going", talkMs, until: 0, face: face || spot.face || "down", partner: partner ? partner.id : null, spot};
+  p.path = route(p.pos, {x: spot.x, y: spot.y});
+}
+function startConvo(a, b, kind){ endConvo(a.id); convos.push({ids: [a.id, b.id], next: 0, turn: 0, kind: kind || "chat", last: "", until: performance.now() + 60000}); }
+function endConvo(id){ for (let i = convos.length - 1; i >= 0; i--) if (convos[i].ids.includes(id)) convos.splice(i, 1); }
+function freePeople(){ return people.filter(p => p.visible && p.pos && !p.path.length && !p.detour && p.state === "desk" && p.seat && p.seat.pool === "desk" && !convos.some(c => c.ids.includes(p.id))); }
+function wander(t){
+  if (t < nextWander) return;
+  nextWander = t + rnd(60000, 240000);                       // a stroll every 1–4 minutes, at random
+  if (reduced || scrubMin !== null || playing || mode === "loading") return;
+  if (people.filter(p => p.detour).length >= 2) return;
+  const free = freePeople(); if (!free.length) return;
+  const party = celebrationsToday();
+  if (party.length && Math.random() < 0.55){
+    const c = pick(party), visitor = pick(free.filter(x => x !== c.p));
+    if (visitor && c.p.visible && c.p.seat && c.p.seat.pool === "desk" && !c.p.path.length && Math.random() < 0.6){   // wish them at their desk
+      const spot = standBy(c.p); startDetour(visitor, spot, c.p, rnd(9000, 14000), spot.face); startConvo(visitor, c.p, "chat"); return;
+    }
+    if (visitor){ const sp = pick(PARTY_SPOTS.slice(1)); startDetour(visitor, sp, null, rnd(5000, 9000), sp.face); visitor.detour.say = pick(["Cake time 🍰", "Who got the cake? 😋", "Decor looks 🔥", `Yay ${firstName(c.p)}! 🎉`, "One more slice…"]); }
+    if (free.includes(c.p) && Math.random() < 0.4){ const sp = PARTY_SPOTS[0]; startDetour(c.p, sp, null, rnd(6000, 10000), sp.face); c.p.detour.say = pick(["Cake's here, everyone! 🎂", "Help yourselves 🍰", "Thank you all 🥹"]); }
+    return;
+  }
+  const a = pick(free), others = free.filter(x => x !== a), r = Math.random();
+  if (r < 0.45 && others.length){                             // walk over to a colleague's desk
+    const b = pick(others), spot = standBy(b);
+    startDetour(a, spot, b, rnd(8000, 15000), spot.face);
+    startConvo(a, b, null);
+  } else if (r < 0.8 && others.length){                       // two people meet somewhere for a chat
+    const h = simHour(), evening = h >= 16 && h < 18.8, sea = Math.random() < (evening ? 0.55 : 0.12);
+    const b = pick(others), sp = pick(sea ? SHORE_SPOTS : MEET_SPOTS), talkMs = rnd(sea ? 16000 : 10000, sea ? 26000 : 18000);
+    startDetour(a, sp.a, b, talkMs, "down"); startDetour(b, sp.b, a, talkMs, "up");
+    if (sea && Math.random() < 0.5) a.detour.say = pickFresh(SHORE_LINES);
+    startConvo(a, b, null);
+  } else {                                                    // a quick solo stretch: water, printer, bookshelf
+    const sp = pick(SOLO_SPOTS); startDetour(a, sp, null, rnd(3000, 6000), sp.face);
+  }
+}
+function afterMeeting(p){
+  if (reduced) return;
+  const free = freePeople().filter(x => x !== p); if (!free.length) return;
+  const same = free.filter(x => p.projects && p.projects[0] && x.projects && x.projects[0] === p.projects[0]);
+  const b = pick(same.length ? same : free), spot = standBy(b);
+  startDetour(p, spot, b, rnd(6000, 10000), spot.face);
+  startConvo(p, b, "afterCall");
+}
+function talk(t){
+  for (let i = convos.length - 1; i >= 0; i--){
+    const c = convos[i], a = byId[c.ids[0]], b = byId[c.ids[1]];
+    if (!a || !b || !a.visible || !b.visible || t > c.until){ convos.splice(i, 1); continue; }
+    const ready = [a, b].every(p => !p.path.length && (!p.detour || p.detour.phase === "talking"));
+    if (!ready || t < c.next) continue;
+    if (c.turn >= 3) continue;                                  // short exchanges: three lines at most
+    const speaker = c.turn % 2 ? b : a, other = speaker === a ? b : a;
+    let text;
+    if (c.turn === 0){ const o = opener(a, b, c.kind); text = o.text; c.first = o; }
+    else text = c.turn === 1 ? reply(b, a, c.first || {text: c.last}, c.kind) : followUp(speaker, other);
+    c.last = said(text);
+    bubbles.set(speaker.id, {text, until: t + 1500 + Math.min(1800, text.length * 45)});
+    c.turn++; c.next = t + rnd(5500, 8000) + Math.min(1500, c.last.length * 30);
+  }
+}
+
+/* ---------------- Working from the garden ---------------- */
+let nextGarden = performance.now() + rnd(20000, 60000);
+const GARDEN_LINES = ["Working outside today 🌿", "Fresh air > AC", "Laptop + neem shade", "Birds are loud today 🐦", "Kolam's pretty today", "Sun's out ☀️", "Deck office, best office", "Taking this call outside", "Five minutes of green", "Pond's calm today"];
+const BEACH_LINES = ["Office by the sea 🌊", "Sea deck > desk", "Salt air, clear head", "Waves = lo-fi beats", "Hammock meeting 😌", "Sand in the keyboard…", "Sea view, zero tabs", "Can't hear Slack out here", "Tide's coming in", "Coconut break 🥥"];
+const OUTDOOR_SEATS = GARDEN_SEATS.concat(BEACH_SEATS);
+function gardenTime(t){
+  if (t < nextGarden) return;
+  const h = simHour(), golden = (h >= 8 && h < 10) || (h >= 16 && h < 18);
+  nextGarden = t + rnd(golden ? 30000 : 60000, golden ? 90000 : 180000);
+  if (reduced || scrubMin !== null || playing || mode === "loading" || h < 7 || h > 18.5) return;
+  const outside = people.filter(p => p.detour && OUTDOOR_SEATS.includes(p.detour.spot));
+  if (outside.length >= 5) return;
+  const free = freePeople(); if (!free.length) return;
+  const beachOk = h < 11.5 || h >= 15;                        // the sand is too hot around noon
+  const open = OUTDOOR_SEATS.filter(sp => (beachOk || !BEACH_SEATS.includes(sp)) && !people.some(p => p.detour && p.detour.spot === sp));
+  if (!open.length) return;
+  const p = pick(free), sp = pick(open);
+  startDetour(p, sp, null, rnd(120000, 360000), sp.face);    // 2–6 minutes outside, then back to the desk
+  p.detour.say = pickFresh(BEACH_SEATS.includes(sp) ? BEACH_LINES : GARDEN_LINES);
+}
+
+/* ---------------- What people say: context-aware lines ---------------- */
+const LINES_CHANNEL = "studio-floor-lines";   // anyone can post their own bubble lines here
+// Signature lines taken from people's own Slack titles (used until a live profile read replaces them).
+const STATIC_SIGS = {
+  "U099E470LM6": "Huddles go awkwardly silent when I join",
+  "U0A6NCL2FJR": "I do a good impression of understanding things!",
+  "ULVHUR56Y":   "Searching for inner peace",
+  "U01CN2WA1T2": "🏎💨",
+};
+/* Departments: what people mutter at their desk (self), what they ask others (asks), how they answer (replies). {P} = the other person's project. */
+const DEPT = {
+  leadership: {self: ["Big week, team 🐘", "Sales call in 10", "Proposal's out", "What's the insight here?", "Let's go bold"],
+               asks: ["How's {P} coming along?", "Can we show {P} Friday?", "What's the big idea?", "Proud of this one"],
+               replies: ["Let's go bold", "Love it", "Sharpen it", "Ship it 🐘"]},
+  design:     {self: ["Kerning…", "One more round of revisions", "Is this too bold?", "Moodboard's up", "Exporting assets…", "Grid's finally working", "Type pairing time"],
+               asks: ["Thoughts on this layout?", "Too much whitespace?", "A or B?", "Can I steal your {P} palette?"],
+               replies: ["Looks clean!", "Go bolder", "A, obviously", "Nudge it 2px"]},
+  uiux:       {self: ["Wireframes v3…", "Fixing auto-layout", "Prototype's linked", "This flow's a maze", "Handoff doc's ready", "Dark mode too?"],
+               asks: ["Does this flow make sense?", "Can you test this prototype?", "Spacing look off?", "Mobile or web first?"],
+               replies: ["Add a back button", "Make it one tap", "Ship the flow", "Needs empty states"]},
+  verbal:     {self: ["Naming round 3…", "What's the one-liner?", "Is it 'we' or 'you'?", "The narrative's clicking", "Too many adjectives", "Rewriting the headline"],
+               asks: ["Name ideas for {P}?", "Headline or tagline?", "Does this sound on-brand?", "Read this out loud?"],
+               replies: ["Shorter!", "Say it simpler", "Ooh, that one", "Kill the adjective"]},
+  dev:        {self: ["Pushing to staging", "Works on my machine 🤷", "Webflow's being moody", "Fixed that bug!", "Clearing the cache…", "CMS is set up"],
+               asks: ["Final designs for {P}?", "Is this the latest Figma?", "Can I get the assets?", "Which breakpoint?"],
+               replies: ["On it", "Give me an hour", "Staging link soon", "That's a CSS thing"]},
+  pm:         {self: ["Updating the tracker", "Client call at 4", "Timeline's tight", "Sending the recap", "Feedback's in"],
+               asks: ["Any updates?", "Status on {P}?", "Can we share by EOD?", "Client wants {P} Friday", "Update in the thread?"],
+               replies: ["Adding it to the tracker", "I'll tell the client", "Let's push to Monday", "Noted ✅"]},
+  marketing:  {self: ["Post goes live at 6", "Caption ideas?", "Reel's rendering…", "Engagement's up 📈", "Content calendar's full"],
+               asks: ["Can I get the post?", "Any BTS for socials?", "Photo for the post?", "Can you fill this form?", "Carousel by today?"],
+               replies: ["Posting it now", "Tag us!", "Perfect for a reel", "Adding it to the calendar"]},
+  research:   {self: ["Reading the research…", "Found the insight!", "Competitor audit done", "Survey's out", "Crunching numbers"],
+               asks: ["Seen this data?", "Who's the audience for {P}?", "Can I interview you?"],
+               replies: ["Interesting…", "Source?", "That's the insight", "Let's validate that"]},
+  ops:        {self: ["Payroll day 😅", "Updating the HR sheet", "Checking leave balances…"],
+               asks: ["Filled the form?", "Form by EOD, please!", "Bank details?", "Did you sign that?", "Reimbursements in?"],
+               replies: ["Noted!", "Send me the form", "Payroll's on it"]},
+};
+// Who's who, as Gokul described the team, with 20 fictional lines each. project = default when Slack shows none.
+const PROFILE = {
+  "U0ACYVBJBS5": {"dept": "ops", "quirks": ["Form, please 🙏", "Chasing forms 📋", "Who hasn't filled the sheet?", "Payroll waits for no one", "Reminder #3 😇", "Bank details, anyone?", "Deadline was yesterday 🙃", "I see your unread form 👀", "Signed copy, please", "One tiny form, promise", "HR sheet updated ✅", "Leave balance check?", "Reimbursements by Friday!", "Forms are my cardio", "Please don't ghost my form", "Attendance looks great today", "Who took the stapler?", "Onboarding kit's ready", "Filed. Sorted. Done.", "Coffee after payroll ☕"]},   // Mo
+  "U09ECQP5KDK": {"dept": "design", "quirks": ["Uber deck, again", "Modelling shoot this weekend 📸", "Pose check 💁‍♀️", "Uber green, but greener", "Frame 12 of 40…", "Mood board's glowing", "One more Uber banner", "Lighting is everything", "Portfolio shots done 📸", "Saturation +2, perfect", "Uber review went well!", "Ramp walk to the pantry 😄", "Photoshop, don't crash", "This crop is chef's kiss", "Exporting at 2x", "Can we shoot this for real?", "Colour grade in progress", "New headshots soon", "Uber, version final_final", "Striking a pose for this layout"], "project": "Uber"},   // Shruti
+  "U01CN2WA1T2": {"dept": "dev", "quirks": ["Car's getting a new exhaust 🏎", "Spent my salary on rims", "🏎💨", "Deploying at full throttle", "Zero to staging in 3 secs", "Turbo mode: on", "Code's cleaner than my car", "Tuning the build like an engine", "Weekend track day?", "This site handles like a dream", "New spoiler arrives Monday", "Downshift, debug, repeat", "Fixed it before the red light", "Webflow pit stop", "Oil change after this push", "Rev-limited on bugs today", "Garage talk at lunch?", "It purrs now 🐾", "Custom wrap, custom code", "Race you to the pantry"]},   // Samuel
+  "U0145T9FDH8": {"dept": "verbal", "quirks": ["SRK marathon tonight 🎬", "Arms wide open 👐", "Naming is everything", "Every brand needs a hero", "Plot twist in the narrative", "This tagline gives goosebumps", "Monologue drafted 🎭", "Interval, then climax", "Director's cut of the copy", "Rewriting like it's a sequel", "Box office headline, this", "Three names, one winner", "Romance? No, rebrand", "Cue the slow motion", "Emotional arc: locked", "King of copy mode 👑", "Scene 2: the narrative", "Standing ovation for this line", "Casting words carefully", "Blockbuster naming session"]},   // Samshritha
+  "U08DHB3TTFX": {"dept": "dev", "quirks": ["Drafting my next LinkedIn post", "Agree? 👇", "That's a LinkedIn post", "5 lessons from this bug", "Thrilled to announce… staging", "Humbled by this CMS", "Carousel post incoming", "Webflow tip of the day", "#BuildInPublic", "Hot take: clean classes", "Grateful for this deploy 🙏", "Thought leadership loading…", "Repost if you agree", "What this bug taught me", "Just shipped. Thoughts?", "Commenting 'insightful'", "Networking at the pantry", "My feed needs this site", "Posting at 9am sharp", "Personal brand: optimised"]},   // Prity
+  "U022F2W0HHP": {"dept": "uiux", "quirks": ["Array, round 47…", "Array never ends 😵", "One more Array screen", "Array v2… of v9", "Is Array done? Never.", "Screen 112 of Array", "Array dreams tonight 😴", "Array feedback, again", "Auto-layout saved me", "Components, components", "Array's design system grows", "New flow for Array", "Array: the sequel", "Handoff… for part 3", "Array has a new edge case", "I see Arrays in my sleep", "Pixel perfect, finally", "Variants on variants", "Array standup in 5", "Maybe one more screen?"], "project": "Array"},   // Preksha
+  "U0A6NCL2FJR": {"dept": "design", "quirks": ["Trust me, I'm a designer", "Is it lunch yet?", "😂😂", "I nodded, I understood nothing", "Professional overthinker", "Font? Comic Sans. Kidding.", "Deadline? Never heard of it", "My layers are unnamed 🙈", "Ctrl+Z is my best friend", "Designing with vibes only", "That's not a bug, it's art", "Quick 5-min task, 3 hours later", "I'll fix it in post", "I had one job 😅", "That meeting could've been a meme", "Resolution: high. Energy: low", "Grid? I barely know her", "Making it pop 💥", "Chai first, pixels later", "Plot twist: it's approved"]},   // Preetam
+  "U099E470LM6": {"dept": "uiux", "quirks": ["No cap, this slaps", "It's giving brand", "Lowkey fire 🔥", "This ate 💅", "Bet.", "Main character UI", "Rent free in my Figma", "Understood the assignment", "This flow is bussin", "Not me redoing it again 💀", "Ate and left no crumbs", "It's the padding for me", "Slay the wireframe", "Delulu deadline 😭", "Vibe check: passed", "Big W for this screen", "POV: final feedback", "Say less", "Real ones use auto-layout", "Touch grass after this push"]},   // Praveen
+  "U099E4897GQ": {"dept": "marketing", "quirks": ["Post, please? 🙏", "Frisbee at 6 🥏", "Modelling shoot 📸", "Reel idea incoming 🎥", "Need a BTS clip", "Story's live!", "Caption brainstorm?", "Engagement's popping 📈", "Can I film you working?", "Trending audio found", "Frisbee team needs one more", "Content calendar: full", "Carousel going out at 7", "Hook in 3 seconds", "Link in bio 🔗", "Shoot looks gorgeous", "Tag the studio!", "Weekend: frisbee finals 🥏", "Pose for the socials?", "Analytics look happy"]},   // Pooja Raghu
+  "U02MCTN385A": {"dept": "design", "quirks": ["Uber review at 3", "Swiftie mode 💜", "Eras playlist on 🎧", "Uber campaign, round 4", "Friendship bracelets later 💜", "Art direction check", "Uber banners approved!", "Colour palette era 🎨", "Team critique at 5", "Can we tighten the type?", "Uber launch, fingers crossed", "Swift break, then pixels", "Mood board: enchanted ✨", "Guiding the Uber team", "Leading the pixel squad", "Brand guidelines, updated", "Reviewing every frame", "Coffee and critique", "Uber, one last export", "New layout, new era"], "project": "Uber"},   // Pooja
+  "U099E481108": {"dept": "pm", "quirks": ["Any updates?", "Updates, people!", "Status?", "Where are we on this?", "Quick check-in 👋", "Client asked, so I'm asking", "EOD works?", "Tracker says 70%…", "Friendly nudge 🙂", "Timeline check!", "Can we share a preview?", "Recap going out at 6", "Who owns this task?", "Updating the client now", "Blockers?", "Next steps, anyone?", "Review slot at 4?", "Just circling back 🔁", "ETA, please 🙏", "Great progress, team!"]},   // Kajol
+  "U05F5TWC59B": {"dept": "pm", "quirks": ["Client wants updates", "Mom brain + client brain 😅", "Update me, please", "Two calls, one chai", "Client loved the preview!", "Juggling like a pro 🤹", "Growth plan's moving", "Status on the deck?", "Mom mode, meeting mode", "Sending the proposal", "Timeline's locked ✅", "Pickup after this call", "Who's joining the 4pm?", "Recap in the thread", "Client says yes! 🎉", "Quick sync?", "Everything's on track", "Coffee, then client call", "Multitasking queen 👑", "Home by 7, hopefully"]},   // Juhi
+  "U09US6FJHAA": {"dept": "pm", "quirks": ["Updates?", "Client's waiting 👀", "Tracker updated", "Status check ✅", "Deck for review?", "Client call in 15", "Sharing the notes now", "Deadline's Friday", "Who's on the 3pm call?", "Feedback round 2", "Minutes are up", "Nudging the client", "Handover done", "Client said 'love it'!", "Quick huddle?", "Timelines, timelines", "Can we lock this?", "Next review Monday", "Sending the recap", "All boxes ticked ✅"]},   // Induja
+  "USH087NMD": {"dept": "design", "quirks": ["Different POV…", "What if we flip it?", "Counterpoint though…", "Why not the opposite?", "Is it brave enough?", "What would it feel like?", "Remove, don't add", "Let's question the brief", "The idea before the layout", "Push it 10% further", "What's the tension here?", "Design is a decision", "Try it upside down", "Too safe. Again.", "Where's the surprise?", "Less, but louder", "Show me three directions", "What if it had no logo?", "Research first, pixels later", "Now that's a point of view"]},   // Indhu
+  "UB05U84LX": {"dept": "leadership", "quirks": ["On a sales call", "Big week, team 🐘", "Let's go bold", "Proposal's out 🚀", "New lead, great fit", "Pitch at 3, wish me luck", "Possibilities, answered", "What's the positioning?", "Closing this one today", "Proud of this team", "Differentiate or disappear", "Another sales call ☎️", "Client said yes!", "Let's be the elephant 🐘", "Numbers look good", "Coffee with a founder", "Strategy before style", "Big idea, small words", "Who's free for a quick one?", "This is the Become way"]},   // Harish
+  "U08AU3DM092": {"dept": "uiux", "quirks": ["Designing, coding, animating…", "One more side project", "Ex-architect, still sketching", "Figma → Claude → ship", "Prototype in the browser", "Shaders make everything better", "Built a tool for that", "Motion, but make it subtle", "Wearable UI, anyone?", "Swiss grid supremacy", "Helvetica, obviously", "Three.js is calling", "Automating this workflow", "Pixel office update 👾", "Thumbnail skill, v2", "From brief to build today", "Design system, synced", "Scroll animation looks 🔥", "What if it were 3D?", "Shipping before lunch"]},   // Gokul
+  "U08VA01T7UZ": {"dept": "research", "quirks": ["Research rabbit hole 🐇", "Mom mode on 😄", "The data says…", "Survey results are in", "Competitor deep dive", "Numbers don't lie", "Persona #4 is ready", "Market's shifting 📊", "Insight of the day 💡", "Spreadsheets, my happy place", "Interview notes typed up", "Trends report drafted", "Pickup at 5, then data", "Found a surprising stat", "Charts, charts, charts", "Desk research done ✅", "Who's our real audience?", "Benchmarking this week", "Sources cited, always", "Coffee and a crosstab"]},   // Gayathri
+  "ULVHUR56Y": {"dept": "marketing", "quirks": ["Brand table event idea 💡", "Let's host a table event", "Searching for inner peace", "Monk mode 🧘", "Event checklist: done", "Guest list is growing", "Table talk this Friday?", "Branded coasters? Yes.", "Inner peace, outer deadline", "Venue scouted ✅", "Community night idea", "Marketing, but mindful", "Invites going out", "Networking over chai", "Quiet mind, loud campaign", "Planning the next meetup", "Speaker lineup confirmed", "Breathe in, post out", "Event recap reel?", "Zen and the art of marketing"]},   // AV
+  "U07F37E4S12": {"dept": "research", "quirks": ["Client research call", "Research is ready", "Interviewing the client", "Stakeholder notes up", "What does the client really want?", "Insights deck drafted", "Client workshop tomorrow", "Mapping the market", "Asking 'why' again", "Discovery phase ✅", "Client feedback is gold", "Frontrunner mode", "Five interviews today", "Synthesis in progress", "Client loved the findings", "Research, then rhythm", "The brief behind the brief", "Quick field visit", "Founding team energy", "Notes, notes, notes"]},   // Arun Thangavel
+  "U05UDFQ1Z7A": {"dept": "uiux", "quirks": ["What's for lunch? 🍛", "Biryani later?", "Slept 3 hours 👶😵", "New dad life 🍼", "Brand strategy hat on", "Dosa or pongal?", "Positioning, then parotta", "Diaper duty done 😅", "Filter coffee break ☕", "Strategy deck + snacks", "Tiny human, big deadlines", "Lunch ready at 1?", "Brand pillars & biscuits", "Lullaby playlist, work edition", "Chai count: 4", "Food is a UX problem", "Who ordered samosas?", "Sleep is a myth now", "Strategy tastes better fed", "Dinner plans already"]},   // Arun Sandeep
+  "U093E411EUQ": {"dept": "marketing", "quirks": ["Post, please? 🙏", "Fill this form 📋", "One more form…", "Story going up now", "Need a pic for socials", "Quick poll: which one?", "Scheduling for 7pm", "Hashtags ready #️⃣", "Form link in Slack!", "Reels need faces 😄", "Can I tag you?", "Caption approved?", "Posting streak: 12 days", "Insights are up 📈", "Your post draft's ready", "One sec, filming this", "Grid looks aesthetic", "Survey form, 2 mins!", "Collab post incoming", "Engagement party 🎉"]},   // Akshaya
+  "U05E5KBAT26": {"dept": "design", "quirks": ["Figma → Illustrator → repeat", "Type is everything", "Illustrating…", "Vector magic ✨", "Kerning at 3am energy", "Custom lettering today", "Brushes loaded 🖌", "Pen tool, my love", "Artboard 27", "Brand illustration set", "Ligatures make me happy", "New icon family", "Outlines, then colour", "Figma plugins galore", "Swash caps, why not", "Sketching the concept", "Export for web done", "Illustration style locked", "Type specimen sheet!", "Bézier curves are life"]},   // Afri
+  "U09US6G61V4": {"dept": "design", "quirks": ["Kerala coffee > everything ☕", "Designing…", "75 banners, done ✅", "Banner 76, here we go", "Timelines? Handled.", "Holistic, they said 🏅", "Cadence set for today", "Onam vibes 🌼", "Backwaters of layers", "Beat the deadline again", "Brand kit ready", "Recommendations inside", "Puttu for breakfast 😄", "Resizing for 12 formats", "Feedback loop, positive", "Kerala green in the palette", "Organised folders only", "Delivered before time", "Banana chips, anyone?", "Monsoon mood board 🌧"]},   // Achuthan
+  "U09US6GF20N": {"dept": "design", "quirks": ["Kerning is life", "Logo, round 5", "Brand guidelines, page 40…", "Custom typeface draft", "Grid for the logo", "Madeit on priority 🎯", "Monogram exploration", "Visual strategy by Friday", "Typeface pairing done", "Vector cleanup", "Logo lock-up v3", "Brand colour tuning", "Letterforms, all day", "Pitch deck visuals", "Serif or sans? Both.", "Brand book spread", "Symbol sketches", "Iconography next", "Mockups look real!", "Trademark-ready ✅"]},   // Soham
+  "U06CGR4RPGV": {"dept": "design", "quirks": ["Easing curves 😍", "Rendering the motion…", "Keyframes everywhere", "Leg day 💪", "Protein first 🥚", "After Effects crashed 😩", "60 fps or nothing", "Logo animation v4", "Bounce, but subtle", "Rep count: 12", "The loop is seamless", "Motion guidelines drafted", "Gym at 6, render at 7", "Lottie export done", "Timeline, not tummy", "Squats, then shapes", "Transition feels smooth", "Rest day = render day", "Motion blur on", "Pump up the frames 💪"]},   // Gautham
+  "U0A7L4VS1PS": {"dept": "verbal", "quirks": ["Copy, round 2", "The narrative's almost there", "One more headline…", "Word count: perfect", "Tone of voice doc", "Oxford comma, yes", "Microcopy matters", "This button says 'Go'", "Brand story, chapter 1", "Punchier, shorter", "Headlines: 20 options", "Copy deck shared", "Is it too clever?", "Voice: warm, not cute", "Reading it aloud", "Synonym hunt 🔍", "Taglines on sticky notes", "Proofreading pass", "Every word earns its place", "The narrative clicks now ✨"]},   // Adithi
+};
+const ASKERS = new Set(["pm", "marketing", "ops"]);   // departments whose whole thing is asking people for stuff
+const REACTIONS = ["haha", "True!", "😂", "Right?!", "Same", "Okay okay", "Tell me more", "Sounds good", "🙌", "Hmm…", "Nice!", "Ha, classic", "No way!", "Love that", "Fair point", "Honestly, same", "Wait, really?", "I'm dead 💀", "Big mood", "You're not wrong"];
+const QUESTION_REPLIES = ["Almost!", "Yes, sending now", "Not yet 😅", "In an hour?", "Done ✅", "After lunch?", "Yes!!", "Working on it", "Give me 10", "Just finishing up", "Yep, all set", "Hmm, let me check", "Tomorrow morning?", "Sure thing", "Ask me at 4 😅", "It's in the folder"];
+const shortName = s => (s.length > 14 ? s.slice(0, 13) + "…" : s);
+const firstName = p => p.name.split(" ")[0];
+function deptOf(p){
+  const pr = PROFILE[p.id]; if (pr) return pr.dept;
+  const r = `${p.role || ""} ${p.title || ""}`.toLowerCase();
+  if (/founder|ceo/.test(r)) return "leadership";
+  if (/develop|webflow|engineer|frontend|code/.test(r)) return "dev";
+  if (/ui|ux|product/.test(r)) return "uiux";
+  if (/design|brand|visual|type|creative|art/.test(r)) return "design";
+  if (/verbal|copy|communication|narrative/.test(r)) return "verbal";
+  if (/research|analyst/.test(r)) return "research";
+  if (/client|account|project manager|partner/.test(r)) return "pm";
+  if (/growth|marketing|content|social/.test(r)) return "marketing";
+  return null;
+}
+const deptLines = (p, kind) => ((DEPT[deptOf(p)] || {})[kind] || []);
+const projectOf = p => p.project || (PROFILE[p.id] && PROFILE[p.id].project) || "";
+function isFunTitle(t){ return t && t.length <= 60 && !/design|develop|strateg|manag|lead|director|analyst|founder|ceo|growth|marketing|content|partner|research|frontrunner|team|engineer|writer|intern|head|associate|junior|senior|verbal|client/i.test(t); }
+function sigLines(p){
+  const own = ((live.selfLines && live.selfLines[p.id]) || []).slice();
+  const q = (PROFILE[p.id] && PROFILE[p.id].quirks) || [];
+  const t = p.title && isFunTitle(p.title) ? p.title : STATIC_SIGS[p.id];
+  return own.concat(q, t && !q.includes(t) ? [t] : []);
+}
+function timeLines(){
+  const h = simHour(), day = new Date(Date.now() + 19800000).getUTCDay(), L = [];
+  if (h < 10.5) L.push("Morning!", "Chai first ☕", "Traffic was mad 😩", "Cadence in 5?");
+  else if (h < 12.5) L.push("Chai break?", "Coffee?", "Cadence went long 😅");
+  else if (h < 14.5) L.push("Lunch plans?", "What's for lunch?", "Food's here! 🍱", "So full 😴");
+  else if (h < 17) L.push("Post-lunch slump…", "Chai at 4?", "Need a biscuit 🍪");
+  else L.push("Heading out?", "Last push!", "One more render…", "Leaving in 10");
+  if (day === 5) L.push("Weekend plans?", "TGIF 🎉");
+  if (day === 1) L.push("Monday, huh…");
+  return L;
+}
+const CAPS_SKIP = /^(LIVE|EOD|ASAP|FYI|AI|UI|UX|PDF|OK|TGIF|IST|CEO|PR)$/;
+function newsItems(){
+  const out = [];
+  for (const sl of tvSlides){
+    if (!sl || sl.type === "today" || /sample/i.test(`${sl.by || ""} ${sl.title || ""}`)) continue;
+    if (sl.type === "kudos"){ const m = /^(\S+).* is (.+)$/.exec(sl.title); if (m) out.push({type: "kudos", who: m[1], value: m[2]}); }
+    else if (sl.type === "launch"){
+      const txt = `${sl.title} ${sl.body || ""}`, ch = /#([\w-]+)/.exec(txt);
+      const caps = (txt.match(/\b[A-Z][A-Z0-9]{2,}\b/g) || []).filter(w => !CAPS_SKIP.test(w));
+      out.push({type: "launch", subj: ch ? prettyChannel(ch[1]) : caps[0] || null});
+    } else if (sl.type === "milestone"){ const who = people.find(p => sl.title.includes(firstName(p))); out.push({type: "anniv", who: who ? firstName(who) : null}); }
+    else if (sl.type === "win") out.push({type: "win"});
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+function newsLines(listener){
+  const L = [];
+  for (const c of celebrationsToday()){ if (c.p === listener) L.push(...wishLines(c), ...wishLines(c)); else L.push(pick(wishLines(c))); }
+  for (const n of newsItems()){
+    if (n.type === "kudos") L.push(n.who === firstName(listener) ? `${n.value}, huh? 🏅` : `Saw ${n.who}'s kudos? 🏅`);
+    else if (n.type === "launch") L.push(n.subj ? `${shortName(n.subj)} looks 🔥` : "Saw the launch? 🚀");
+    else if (n.type === "anniv" && n.who) L.push(n.who === firstName(listener) ? "Happy anniversary! 🎉" : `${n.who}'s anniversary 🎉`);
+    else if (n.type === "win") L.push("What a week 🐘");
+  }
+  return L;
+}
+function sharedProject(a, b){ const c = (a.projects || []).find(x => (b.projects || []).includes(x)); return c ? prettyChannel(c) : null; }
+function weighted(list){
+  const key = x => (x && x.text !== undefined ? x.text : x);
+  const fresh = list.filter(([x]) => !recentLines.includes(key(x)));
+  if (fresh.length) list = fresh;
+  else { const oldest = [...list].sort((m, n) => recentLines.lastIndexOf(key(m[0])) - recentLines.lastIndexOf(key(n[0]))); return oldest[0] ? oldest[0][0] : null; }
+  const total = list.reduce((s, [, w]) => s + w, 0); if (!total) return null;
+  let r = Math.random() * total; for (const [t, w] of list){ r -= w; if (r <= 0) return t; } return list[list.length - 1][0];
+}
+function fillP(line, other){ const P = projectOf(other); return line.includes("{P}") ? (P ? line.replace("{P}", shortName(P)) : null) : line; }
+function opener(a, b, kind){
+  if (kind === "afterCall"){
+    const P = projectOf(a) ? shortName(projectOf(a)) : null;
+    return {text: pickFresh(P ? [`${P} call done ✅`, `${P} went well!`, `Notes from the ${P} call…`, "Just got off the call", "Few changes on the deck…"] : ["Just got off the call", "That went well", "Few changes…", "Phew 😮‍💨"]), type: "afterCall"};
+  }
+  const c = [], shared = sharedProject(a, b), add = (text, w, type = "chat") => { if (text) c.push([{text, type}, w]); };
+  if (shared){ const P = shortName(shared); [`${P} deck ready?`, `Did ${P} reply?`, `${P} review at 4?`, `Sending the ${P} files`, `${P} feedback's in`].forEach(t => add(t, 3)); }
+  else if (projectOf(b)){ add(`How's ${shortName(projectOf(b))} going?`, 1.5); }
+  deptLines(a, "asks").forEach(t => add(fillP(t, b), ASKERS.has(deptOf(a)) ? 5 : 1.5, "ask"));
+  newsLines(b).forEach(t => add(t, 2.5, "news"));
+  timeLines().forEach(t => add(t, 1.2));
+  sigLines(a).forEach(t => add(t, 2.5, "sig"));
+  if (b.statusText && /priority|focus|deadline|heads down/i.test(b.statusText)) add("Don't let me distract you 😅", 4);
+  return weighted(c) || {text: pickFresh(REACTIONS), type: "chat"};
+}
+function reply(b, a, prev, kind){
+  if (kind === "afterCall") return pickFresh(["How'd it go?", "What did they say?", "Nice! 🙌", "Told you!", "Let's sync later"]);
+  const t = prev.text || "";
+  if (prev.type === "ask"){
+    // asked for an update, a post or a form: answer like someone being chased; creative questions get a craft answer
+    if (ASKERS.has(deptOf(a))) return pickFresh(["Sending now!", "By EOD, promise", "Done ✅", "Oops, on it 😅", "In 10 mins", "Already did! 🙃", "Check your inbox", "Five more minutes 🙏", "Doing it right now", "Consider it done", "After this call?", "Yes, yes, I know 😅", "It's in the thread", "You're too fast 😄"]);
+    if (deptOf(a) === "leadership" || /^(how's|can we|status)/i.test(t)) return pickFresh(["Almost there!", "Yes, Friday works", "Getting close 🙌", "Sharing a draft today"]);
+    const r = deptLines(b, "replies"); return r.length && Math.random() < 0.7 ? pickFresh(r) : pickFresh(QUESTION_REPLIES);
+  }
+  if (prev.type === "news" && celebOf(b) && /happy|treat|become-versary|years|speech|birthday/i.test(t)) return pickFresh(THANKS);
+  if (prev.type === "news") return pickFresh(["So good right?", "Well deserved 🙌", "Team effort!", "🐘🐘"]);
+  if (/\?\s*\S*$/.test(t)){
+    if (/lunch|chai|coffee|biscuit|tea|food|biryani/i.test(t)) return pickFresh(["Yes! 5 mins", "Already had 😅", "Always ☕", "Count me in"]);
+    if (/weekend/i.test(t)) return pickFresh(["Sleep 😴", "Beach maybe", "Nothing, finally"]);
+    if (/heading out|leaving/i.test(t)) return pickFresh(["10 more mins", "One last thing…", "Yes, finally!"]);
+    return pickFresh(QUESTION_REPLIES);
+  }
+  if (prev.type === "news") return pickFresh(["So good right?", "Well deserved 🙌", "Team effort!", "🐘🐘"]);
+  if (prev.type === "sig") return pickFresh(["Classic you 😂", "Of course 😄", "Haha, always", "Knew it", "Never change 😄", "That's so you", "Iconic", "Every single day", "Called it", "Why am I not surprised", "Legend", "Respect 🫡"]);
+  const own = sigLines(b); if (own.length && Math.random() < 0.3) return pickFresh(own);
+  return pickFresh(REACTIONS);
+}
+function followUp(speaker){
+  const r = Math.random(), self = deptLines(speaker, "self"), sg = sigLines(speaker);
+  if (r < 0.35 && sg.length) return pickFresh(sg);
+  if (r < 0.6 && self.length) return pickFresh(self);
+  if (r < 0.72) return pickFresh(timeLines());
+  return pickFresh(REACTIONS);
+}
+function deskLine(p){
+  const r = Math.random(), self = deptLines(p, "self"), sg = sigLines(p), P = projectOf(p);
+  if (P && r < 0.35) return P;
+  if (sg.length && r < 0.62) return pickFresh(sg);
+  if (self.length && r < 0.85) return pickFresh(self);
+  if (r < 0.93) return pickFresh(timeLines());
+  return null;
+}
+function splitLines(text){
+  return String(text || "").replace(/<@[UW][A-Z0-9]+(?:\|([^>]+))?>/g, "$1").replace(/<https?:[^>]+>/g, "").replace(/<!(channel|here|everyone)>/g, "")
+    .replace(/:([\w+\-]+):/g, (m, n) => EMO_TXT[n] || EMOJI[n] || "")
+    .split(/\n|•|;|\|/).map(x => x.replace(/^[\s\-–*"“”']+|[\s"“”']+$/g, "")).filter(x => x.length >= 2 && x.length <= 48 && !/^https?:/i.test(x));
+}
+function parseLinesResults(text){
+  const map = {};
+  for (const chunk of String(text).split(/### Result \d+ of \d+/).slice(1)){
+    const id = (/From: [^\n]*\(ID: ([UW][A-Z0-9]+)\)/.exec(chunk) || [])[1];
+    const body = (/Text:\s*\n([\s\S]*?)(?:\n\n---|\nContext (?:before|after):|$)/.exec(chunk) || [])[1];
+    if (!id || !body) continue;
+    const list = map[id] || (map[id] = []);
+    for (const l of splitLines(body)) if (list.length < 6 && !list.includes(l)) list.push(l);
+  }
+  return map;
+}
+
+/* ---------------- Ambient office sound (all synthesized with Web Audio) ---------------- */
+const Sound = (() => {
+  let ac = null, master = null, on = false, started = false, white = null, loops = [];
+  const N = {};
+  const rand = (a, b) => a + Math.random() * (b - a);
+  function noise(kind){
+    const len = ac.sampleRate * 2, b = ac.createBuffer(1, len, ac.sampleRate), d = b.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < len; i++){ const w = Math.random()*2 - 1; if (kind === "brown"){ last = (last + 0.02*w) / 1.02; d[i] = last * 3.5; } else d[i] = w; }
+    return b;
+  }
+  function loopSrc(buf){ const s = ac.createBufferSource(); s.buffer = buf; s.loop = true; s.start(); return s; }
+  function panner(x){ const p = ac.createStereoPanner ? ac.createStereoPanner() : null; if (p) p.pan.value = Math.max(-0.8, Math.min(0.8, ((x ?? WW/2) / WW) * 2 - 1)); return p; }
+  function out(node, x){ const p = panner(x); if (p){ node.connect(p).connect(master); } else node.connect(master); }
+  function scene(){
+    const typing = people.filter(p => p.visible && !p.path.length && ["desk","focus","remote"].includes(p.state));
+    const talk = people.filter(p => p.visible && (p.state === "meet" || p.state === "away")).length;
+    const inCount = people.filter(p => ["desk","focus","remote","meet","away"].includes(p.state)).length;
+    const pantry = people.some(p => p.visible && p.seat && p.seat.where && p.seat.where.startsWith("Pantry"));
+    const hr = simHour(), dark = lightAt(hr).dark;
+    // Office noise only once 5 people have jibbled in; in the evening it drops low once 5 or fewer remain.
+    const level = inCount === 0 ? 0 : (hr >= 17 && inCount <= 5) ? 0.3 : inCount >= 5 ? 1 : 0;
+    return {typing, talk, inCount, pantry, hr, dark, level};
+  }
+  function build(){
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    master = ac.createGain(); master.gain.value = 0; master.connect(ac.destination);
+    white = noise("white");
+    // room tone: soft brown noise, like air and distant traffic
+    const rt = loopSrc(noise("brown")), rtF = ac.createBiquadFilter(); rtF.type = "lowpass"; rtF.frequency.value = 420;
+    N.room = ac.createGain(); N.room.gain.value = 0.03; rt.connect(rtF).connect(N.room).connect(master);
+    // AC hum
+    const hum = ac.createOscillator(); hum.frequency.value = 57; const humG = ac.createGain(); humG.gain.value = 0.005; hum.connect(humG).connect(master); hum.start();
+    // murmur of conversation: band-passed noise that swells and fades
+    const mu = loopSrc(white), muF = ac.createBiquadFilter(); muF.type = "bandpass"; muF.frequency.value = 480; muF.Q.value = 1.2;
+    const muF2 = ac.createBiquadFilter(); muF2.type = "lowpass"; muF2.frequency.value = 900;
+    N.mur = ac.createGain(); N.mur.gain.value = 0;
+    const lfo = ac.createOscillator(); lfo.frequency.value = 0.27; N.murDepth = ac.createGain(); N.murDepth.gain.value = 0; lfo.connect(N.murDepth).connect(N.mur.gain); lfo.start();
+    mu.connect(muF).connect(muF2).connect(N.mur).connect(master);
+    // surf from the beach: low noise that swells like waves rolling in
+    const sf = loopSrc(noise("brown")), sfF = ac.createBiquadFilter(); sfF.type = "lowpass"; sfF.frequency.value = 650;
+    N.surf = ac.createGain(); N.surf.gain.value = 0.02;
+    const swell = ac.createOscillator(); swell.frequency.value = 0.11; const swellD = ac.createGain(); swellD.gain.value = 0.014; swell.connect(swellD).connect(N.surf.gain); swell.start();
+    sf.connect(sfF).connect(N.surf); out(N.surf, WW * 0.5);
+    loops.push(setInterval(update, 1000)); update();
+    clicks(); nature(); coffee(); loadRecordings();
+  }
+  // Recorded sounds published next to the page: the office bed (looped) and the Slack knock.
+  let bed = null, knock = null;
+  async function decode(url){ const r = await fetch(url); if (!r.ok) throw new Error(url); return await ac.decodeAudioData(await r.arrayBuffer()); }
+  async function loadRecordings(){
+    try {
+      const buf = await decode("audio/office-ambience.mp3");
+      const src = ac.createBufferSource(); src.buffer = buf; src.loop = true;
+      src.loopStart = 0.05; src.loopEnd = Math.max(1, buf.duration - 0.06);   // skip mp3 padding so the loop has no gap
+      N.bed = ac.createGain(); N.bed.gain.value = 0; src.connect(N.bed).connect(master); src.start(0, 0.05);
+      bed = src; update();
+    } catch (_) { /* recording unavailable: the synthesized room tone carries on */ }
+    try { knock = await decode("audio/slack-notification.mp3"); notifications(); } catch (_) {}
+  }
+  function notifications(){
+    const sc = on && ac ? scene() : null;
+    if (sc && knock && sc.level === 1 && sc.dark < 0.8){
+      const present = people.filter(p => p.visible && p.pos && ["desk","focus","remote","away"].includes(p.state));
+      const who = present[Math.floor(Math.random() * present.length)];
+      const s = ac.createBufferSource(); s.buffer = knock;
+      const g = ac.createGain(); g.gain.value = rand(0.12, 0.26) * (1 - 0.5 * sc.dark);
+      s.connect(g); out(g, who ? who.pos.x : rand(0, WW)); s.start();
+    }
+    const busy = sc ? Math.max(1, Math.sqrt(sc.inCount / 4)) : 1;
+    loops.push(setTimeout(notifications, rand(18000, 75000) / busy));
+  }
+  function update(){
+    if (!ac) return;
+    const sc = scene(), t = ac.currentTime;
+    const quiet = 1 - 0.5 * sc.dark, synth = (bed ? 0.35 : 1) * sc.level;
+    N.room.gain.setTargetAtTime((0.018 + 0.0025 * sc.inCount) * quiet * synth, t, 3);
+    const full = Math.min(1.5, 0.55 + 0.045 * sc.inCount) * (1 - 0.4 * sc.dark);
+    if (N.bed) N.bed.gain.setTargetAtTime(sc.level === 1 ? full : sc.level * 0.9, t, 4);   // slow fades in and out
+    const m = Math.min(0.045, 0.007 * sc.talk) * quiet * synth;
+    N.mur.gain.setTargetAtTime(m, t, 2); N.murDepth.gain.setTargetAtTime(m * 0.55, t, 2);
+    N.surf.gain.setTargetAtTime(0.022 - 0.008 * sc.level + 0.006 * sc.dark, t, 4);   // louder when the office is quiet
+  }
+  function click(x, strength){
+    const s = ac.createBufferSource(); s.buffer = white; const f = ac.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = rand(2200, 4200); f.Q.value = 2.5;
+    const g = ac.createGain(), t = ac.currentTime, v = 0.035 * strength * rand(0.5, 1);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + rand(0.02, 0.045));
+    s.connect(f).connect(g); out(g, x); s.start(t, rand(0, 1.5), 0.06);
+  }
+  function clicks(){
+    if (!on){ loops.push(setTimeout(clicks, 600)); return; }
+    const sc = scene(), n = sc.typing.length;
+    if (!n || !sc.level){ loops.push(setTimeout(clicks, 700)); return; }
+    const who = sc.typing[Math.floor(Math.random() * n)], x = who.pos ? who.pos.x : WW/2;
+    const run = Math.floor(rand(2, 7)), quiet = (1 - 0.5 * sc.dark) * (bed ? 0.55 : 1) * sc.level;
+    for (let i = 0; i < run; i++) setTimeout(() => on && click(x, quiet), i * rand(70, 150));
+    loops.push(setTimeout(clicks, Math.max(120, rand(900, 2600) / Math.sqrt(n))));
+  }
+  function tone(freq, start, dur, vol, type = "sine", to){
+    const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime + start;
+    o.type = type; o.frequency.setValueAtTime(freq, t); if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); return {o, g, t, dur};
+  }
+  function play(n, x){ out(n.g, x); n.o.start(n.t); n.o.stop(n.t + n.dur + 0.05); }
+  function nature(){
+    if (on && ac){
+      const {hr, level} = scene();
+      if ((hr >= 5.6 && hr < 9.5) || (hr >= 16.5 && hr < 18.8)){ // birds outside the windows, morning and evening
+        const base = rand(2600, 3600), x = rand(0, WW), vol = level === 1 ? 0.008 : 0.014;
+        for (let i = 0, k = Math.floor(rand(2, 5)); i < k; i++) play(tone(base, i * rand(0.09, 0.16), 0.07, vol, "sine", base * rand(1.2, 1.5)), x);
+      }
+    }
+    loops.push(setTimeout(nature, rand(1800, 5200)));
+  }
+  function coffee(){
+    if (on && ac && scene().pantry && scene().level && Math.random() < 0.5){
+      const s = ac.createBufferSource(); s.buffer = white; const f = ac.createBiquadFilter(); f.type = "highpass"; f.frequency.value = 1400;
+      const g = ac.createGain(), t = ac.currentTime; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.012, t + 0.4); g.gain.linearRampToValueAtTime(0.009, t + 2); g.gain.linearRampToValueAtTime(0, t + 2.8);
+      s.connect(f).connect(g); out(g, 11 * T); s.start(t, 0, 3);
+    }
+    loops.push(setTimeout(coffee, rand(18000, 40000)));
+  }
+  function setOn(v){
+    on = v;
+    if (v && !started){ started = true; build(); }
+    if (!ac) return;
+    if (v){ ac.resume(); master.gain.cancelScheduledValues(ac.currentTime); master.gain.setTargetAtTime(0.9, ac.currentTime, 0.6); }
+    else { master.gain.setTargetAtTime(0, ac.currentTime, 0.25); }
+  }
+  document.addEventListener("visibilitychange", () => { if (!ac) return; if (document.hidden) ac.suspend(); else if (on) ac.resume(); });
+  return {
+    toggle(){ setOn(!on); return on; },
+    get on(){ return on; },
+    chime(){ if (!on || !ac) return; play(tone(659, 0, 0.35, 0.03, "triangle"), ENTRANCE.x); play(tone(523, 0.16, 0.5, 0.03, "triangle"), ENTRANCE.x); },
+    jingle(){ if (!on || !ac) return; [523, 659, 784, 1047].forEach((f, i) => play(tone(f, i * 0.07, 0.16, 0.018, "square"))); },
+    blip(x){ if (!on || !ac) return; play(tone(880, 0, 0.06, 0.008, "square", 1320), x); },
+  };
+})();
+const soundBtn = document.getElementById("soundBtn");
+soundBtn.onclick = () => { const v = Sound.toggle(); soundBtn.setAttribute("aria-pressed", String(v)); soundBtn.textContent = v ? "♪ SOUND ON" : "♪ SOUND"; };
+
+/* ---------------- Clock ---------------- */
+function clock(){ const n = new Date(); document.getElementById("clock").textContent = fmtClock.format(n); document.getElementById("date").textContent = fmtDate.format(n); updateSrc(); }
+setInterval(clock, 15000); clock();
+
+/* ---------------- Boot ---------------- */
+drawStatic();
+buildCasters();
+recompute(true);
+requestAnimationFrame(tick);
+updateScrubUI();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { for (const k in avatarCache) delete avatarCache[k]; renderList(); });
+startLive();
+})();
+</script>

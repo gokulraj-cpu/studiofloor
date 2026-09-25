@@ -802,7 +802,7 @@ const tip = document.getElementById("tip");
 function hover(sx, sy){
   tvHover = overTV(sx, sy);
   if (tvHover){ cv.style.cursor = "pointer"; tip.innerHTML = "<b>Studio TV</b>Tap to watch news, wins and kudos"; tip.hidden = false; tip.style.left = Math.min(vw - tip.offsetWidth - 8, sx + 14) + "px"; tip.style.top = Math.max(8, sy - 44) + "px"; return; }
-  const p = hitTest(sx, sy);
+  const p = hitTest(sx, sy); hoverId = p ? p.id : null;
   if (!p){ hideTip(); cv.style.cursor = ""; return; }
   cv.style.cursor = "pointer";
   tip.innerHTML = ""; const b = document.createElement("b"); b.textContent = p.name; tip.append(b, document.createTextNode(lineFor(p)));
@@ -1392,7 +1392,7 @@ function drawSprite(c, p, x, y, face, seated, t, moving){
 }
 
 /* ---------------- Frame loop ---------------- */
-const bubbles = new Map(); let lastBubble = 0, nextDeskBubble = 4000, lastT = performance.now();
+const bubbles = new Map(); let lastBubble = 0, nextDeskBubble = 3000, lastT = performance.now();
 const WORK_WORDS = ["Work!", "Nice!", "Hmm…", "Ship it!", "Kerning…", "Idea!", "Done!"];
 function tick(t){
   const dt = Math.min(0.05, (t - lastT)/1000); lastT = t;
@@ -1408,7 +1408,7 @@ function tick(t){
         else { p.pos.x += dx/d*speed; p.pos.y += dy/d*speed; speed = 0; p.walkFace = Math.abs(dy) > Math.abs(dx) ? (dy > 0 ? "down" : "up") : p.walkFace || "down"; }
       }
       if (!p.path.length && p.leaving){ p.visible = false; p.leaving = false; p.pos = null; }
-      if (!p.path.length && p.detour && p.detour.phase === "going"){ p.detour.phase = "talking"; p.detour.until = t + p.detour.talkMs; if (p.detour.say){ bubbles.set(p.id, {text: said(p.detour.say), until: t + 3200}); } }
+      if (!p.path.length && p.detour && p.detour.phase === "going"){ p.detour.phase = "talking"; p.detour.until = t + p.detour.talkMs; if (p.detour.say){ bubbles.set(p.id, {text: said(p.detour.say, p), until: t + 4500}); } }
       else if (!p.path.length && p.detour && p.detour.phase === "returning"){ p.detour = null; }
     } else if (p.detour){
       if (p.detour.phase === "talking" && t > p.detour.until){
@@ -1421,13 +1421,16 @@ function tick(t){
   wander(t); talk(t); gardenTime(t);
   // pop-up bubbles: what people are working on (falls back to a little work chatter)
   for (const [id, b] of bubbles) if (t > b.until) bubbles.delete(id);
-  if (!reduced && t > nextDeskBubble && bubbles.size < 1){
-    lastBubble = t; nextDeskBubble = t + rnd(20000, 45000);  // a desk bubble every 20–45 s
-    const pool = people.filter(p => p.visible && !p.path.length && ["desk","focus","remote"].includes(p.state) && !bubbles.has(p.id));
+  if (!reduced && t > nextDeskBubble && bubbles.size < 2){
+    lastBubble = t; nextDeskBubble = t + rnd(8000, 15000);   // a desk bubble every 8–15 s, at most two on screen, never side by side
+    const busy = [...bubbles.keys()].map(id => byId[id]).filter(q => q && q.pos);
+    const pool = people.filter(p => p.visible && !p.path.length && ["desk","focus","remote"].includes(p.state) && !bubbles.has(p.id)
+      && busy.every(q => Math.hypot(q.pos.x - p.pos.x, q.pos.y - p.pos.y) > 9*T));
     if (pool.length){
       const p = pool[Math.floor(Math.random()*pool.length)];
-      const text = deskLine(p);
-      if (text){ said(text); bubbles.set(p.id, {text, until: t + 2600 + Math.min(2000, text.length * 55)}); Sound.blip(p.pos.x); }
+      speaker = p; const text = deskLine(p);
+      if (text){ said(text, p); bubbles.set(p.id, {text, until: t + 4000 + Math.min(2000, text.length * 55)}); Sound.blip(p.pos.x); }
+      speaker = null;
     }
   }
   draw(t);
@@ -1566,7 +1569,7 @@ function draw(t){
     const sitting = !p.path.length && (p.detour ? !!(p.detour.spot && p.detour.spot.seated && p.detour.phase === "talking") : !!(p.seat && p.seat.seated));
     const q = toScreen(p.pos.x, p.pos.y - (sitting ? 14 : 18));
     let bub = null;
-    if (!p.path.length){
+    if (!p.path.length && (names || p.id === selected || p.id === hoverId)){
       if (p.state === "meet") bub = "On a call";
       else if (p.state === "away") bub = p.statusEmoji || (isFood(p) ? "🍽️" : "☕");
       else if (p.state === "focus") bub = "🎯";
@@ -1818,6 +1821,7 @@ const SLIDE_META = {
   kudos:{kicker:"KUDOS", icon:"🏅"}, launch:{kicker:"IT'S LIVE", icon:"🚀"}, win:{kicker:"STUDIO WIN", icon:"🐘"},
   milestone:{kicker:"MILESTONE", icon:"🎉"}, welcome:{kicker:"NEW FACE", icon:"👋"}, news:{kicker:"STUDIO NEWS", icon:"📣"}, today:{kicker:"TODAY IN THE STUDIO", icon:"🏢"}};
 const EMO_TXT = {confetti_ball:"🎊", tada:"🎉", heart:"❤️", white_heart:"🤍", grey_heart:"🩶", black_heart:"🖤", yellow_heart:"💛", rocket:"🚀", fire:"🔥", eyes:"👀", elephant:"🐘", boom:"💥", sunny:"☀️", point_down:"👇", clap:"👏", raised_hands:"🙌", star:"⭐", sparkles:"✨", trophy:"🏆"};
+let hoverId = null;
 let tvSlides = [], tvIdx = 0, tvHover = false, generalMsgs = [];
 function tvClean(t){
   return String(t)
@@ -1972,10 +1976,20 @@ function watchGeneral(mcp){
 const rnd = (a, b) => a + Math.random() * (b - a);
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 // Lines said recently are held back, so the same bubble doesn't come round again for a long while.
-const recentLines = [], RECENT_MAX = 120;
-function said(t){ if (!t) return t; recentLines.push(t); if (recentLines.length > RECENT_MAX) recentLines.shift(); return t; }
+const recentLines = [], RECENT_MAX = 300, OWN_MS = 60 * 60 * 1000;
+let speaker = null;                                  // who the next line is for (set while lines are being picked)
+function setSpeaker(p){ speaker = p; }
+const ownSaid = {};                                  // person id → {line: last time they said it}
+const saidByMe = x => { const m = speaker && ownSaid[speaker.id]; return !!(m && m[x] && performance.now() - m[x] < OWN_MS); };
+function said(t, who = speaker){
+  if (!t) return t;
+  recentLines.push(t); if (recentLines.length > RECENT_MAX) recentLines.shift();
+  if (who) (ownSaid[who.id] || (ownSaid[who.id] = {}))[t] = performance.now();
+  return t;
+}
 function pickFresh(arr){
   if (!arr || !arr.length) return null;
+  const mine = arr.filter(x => !saidByMe(x)); if (mine.length) arr = mine;
   const fresh = arr.filter(x => !recentLines.includes(x));
   const pool = fresh.length ? fresh : [...arr].sort((a, b) => recentLines.lastIndexOf(a) - recentLines.lastIndexOf(b)).slice(0, 1);
   return pool[Math.floor(Math.random() * pool.length)];
@@ -2001,7 +2015,7 @@ const SOLO_SPOTS = [{x: 38*T, y: 8*T+4, face:"up"}, {x: 38*T, y: 11*T+10, face:"
 const CHAT = ["haha", "😂", "💬", "True!", "Wait, what?", "Coffee?", "Lunch plans?", "👀", "Nice!", "Hmm…", "Did you see that?", "LOL", "Same", "Ship it!", "Tell me more", "Right?!", "🙌", "Okay okay", "Send it over", "Sounds good"];
 const AFTER_CALL = ["Just got off the call", "That went well", "They loved it!", "Few changes…", "Notes in thread", "Phew 😮‍💨"];
 const REPLY_CALL = ["How'd it go?", "Nice!", "What did they say?", "Let's sync later", "🙌", "Told you!"];
-let nextWander = performance.now() + rnd(40000, 90000);
+let nextWander = performance.now() + rnd(12000, 30000);
 const convos = [];
 function standBy(b){
   const s = b.seat, top = s.face === "down";
@@ -2012,14 +2026,14 @@ function startDetour(p, spot, partner, talkMs, face){
   p.detour = {phase: "going", talkMs, until: 0, face: face || spot.face || "down", partner: partner ? partner.id : null, spot};
   p.path = route(p.pos, {x: spot.x, y: spot.y});
 }
-function startConvo(a, b, kind){ endConvo(a.id); convos.push({ids: [a.id, b.id], next: 0, turn: 0, kind: kind || "chat", last: "", until: performance.now() + 60000}); }
+function startConvo(a, b, kind, place){ endConvo(a.id); convos.push({ids: [a.id, b.id], next: 0, turn: 0, kind: kind || "chat", place: place || null, last: "", until: performance.now() + 60000}); }
 function endConvo(id){ for (let i = convos.length - 1; i >= 0; i--) if (convos[i].ids.includes(id)) convos.splice(i, 1); }
 function freePeople(){ return people.filter(p => p.visible && p.pos && !p.path.length && !p.detour && p.state === "desk" && p.seat && p.seat.pool === "desk" && !convos.some(c => c.ids.includes(p.id))); }
 function wander(t){
   if (t < nextWander) return;
-  nextWander = t + rnd(60000, 240000);                       // a stroll every 1–4 minutes, at random
+  nextWander = t + rnd(40000, 90000);                        // a stroll every 40–90 s, at random
   if (reduced || scrubMin !== null || playing || mode === "loading") return;
-  if (people.filter(p => p.detour).length >= 2) return;
+  if (people.filter(p => p.detour && !OUTDOOR_SEATS.includes(p.detour.spot)).length >= 3) return;
   const free = freePeople(); if (!free.length) return;
   const party = celebrationsToday();
   if (party.length && Math.random() < 0.55){
@@ -2027,8 +2041,8 @@ function wander(t){
     if (visitor && c.p.visible && c.p.seat && c.p.seat.pool === "desk" && !c.p.path.length && Math.random() < 0.6){   // wish them at their desk
       const spot = standBy(c.p); startDetour(visitor, spot, c.p, rnd(9000, 14000), spot.face); startConvo(visitor, c.p, "chat"); return;
     }
-    if (visitor){ const sp = pick(PARTY_SPOTS.slice(1)); startDetour(visitor, sp, null, rnd(5000, 9000), sp.face); visitor.detour.say = pick(["Cake time 🍰", "Who got the cake? 😋", "Decor looks 🔥", `Yay ${firstName(c.p)}! 🎉`, "One more slice…"]); }
-    if (free.includes(c.p) && Math.random() < 0.4){ const sp = PARTY_SPOTS[0]; startDetour(c.p, sp, null, rnd(6000, 10000), sp.face); c.p.detour.say = pick(["Cake's here, everyone! 🎂", "Help yourselves 🍰", "Thank you all 🥹"]); }
+    if (visitor){ const sp = pick(PARTY_SPOTS.slice(1)); startDetour(visitor, sp, null, rnd(5000, 9000), sp.face); speaker = visitor; visitor.detour.say = pickFresh(["Cake time 🍰", "Who got the cake? 😋", "Decor looks 🔥", `Yay ${firstName(c.p)}! 🎉`, "One more slice…", "Saved you a piece!", "Balloons are cute 🎈", "Speech later? 🎤", "Candles count check", "Best decor yet"]); speaker = null; }
+    if (free.includes(c.p) && Math.random() < 0.4){ const sp = PARTY_SPOTS[0]; startDetour(c.p, sp, null, rnd(6000, 10000), sp.face); speaker = c.p; c.p.detour.say = pickFresh(["Cake's here, everyone! 🎂", "Help yourselves 🍰", "Thank you all 🥹", "Who wants a slice?", "You guys are the best 💛", "Okay, one more photo 📸"]); speaker = null; }
     return;
   }
   const a = pick(free), others = free.filter(x => x !== a), r = Math.random();
@@ -2040,8 +2054,8 @@ function wander(t){
     const h = simHour(), evening = h >= 16 && h < 18.8, sea = Math.random() < (evening ? 0.55 : 0.12);
     const b = pick(others), sp = pick(sea ? SHORE_SPOTS : MEET_SPOTS), talkMs = rnd(sea ? 16000 : 10000, sea ? 26000 : 18000);
     startDetour(a, sp.a, b, talkMs, "down"); startDetour(b, sp.b, a, talkMs, "up");
-    if (sea && Math.random() < 0.5) a.detour.say = pickFresh(SHORE_LINES);
-    startConvo(a, b, null);
+    if (sea && Math.random() < 0.5){ speaker = a; a.detour.say = pickFresh(SHORE_LINES); speaker = null; }
+    startConvo(a, b, null, sea ? "beach" : ["pond", "neem"].includes(sp.name) ? "garden" : null);
   } else {                                                    // a quick solo stretch: water, printer, bookshelf
     const sp = pick(SOLO_SPOTS); startDetour(a, sp, null, rnd(3000, 6000), sp.face);
   }
@@ -2061,12 +2075,13 @@ function talk(t){
     const ready = [a, b].every(p => !p.path.length && (!p.detour || p.detour.phase === "talking"));
     if (!ready || t < c.next) continue;
     if (c.turn >= 3) continue;                                  // short exchanges: three lines at most
-    const speaker = c.turn % 2 ? b : a, other = speaker === a ? b : a;
+    const who = c.turn % 2 ? b : a, other = who === a ? b : a;
     let text;
-    if (c.turn === 0){ const o = opener(a, b, c.kind); text = o.text; c.first = o; }
-    else text = c.turn === 1 ? reply(b, a, c.first || {text: c.last}, c.kind) : followUp(speaker, other);
-    c.last = said(text);
-    bubbles.set(speaker.id, {text, until: t + 1500 + Math.min(1800, text.length * 45)});
+    if (c.turn === 0){ setSpeaker(a); const o = opener(a, b, c.kind, c.place); text = o.text; c.first = o; }
+    else { setSpeaker(who); text = c.turn === 1 ? reply(b, a, c.first || {text: c.last}, c.kind) : followUp(who, other); }
+    c.last = said(text, who); setSpeaker(null);
+    if (!text) { c.turn++; continue; }
+    bubbles.set(who.id, {text, until: t + 4000 + Math.min(2000, text.length * 45)});
     c.turn++; c.next = t + rnd(5500, 8000) + Math.min(1500, c.last.length * 30);
   }
 }
@@ -2089,7 +2104,7 @@ function gardenTime(t){
   if (!open.length) return;
   const p = pick(free), sp = pick(open);
   startDetour(p, sp, null, rnd(120000, 360000), sp.face);    // 2–6 minutes outside, then back to the desk
-  p.detour.say = pickFresh(BEACH_SEATS.includes(sp) ? BEACH_LINES : GARDEN_LINES);
+  speaker = p; p.detour.say = pickFresh(BEACH_SEATS.includes(sp) ? BEACH_LINES : GARDEN_LINES); speaker = null;
 }
 
 /* ---------------- What people say: context-aware lines ---------------- */
@@ -2103,33 +2118,33 @@ const STATIC_SIGS = {
 };
 /* Departments: what people mutter at their desk (self), what they ask others (asks), how they answer (replies). {P} = the other person's project. */
 const DEPT = {
-  leadership: {self: ["Big week, team 🐘", "Sales call in 10", "Proposal's out", "What's the insight here?", "Let's go bold"],
-               asks: ["How's {P} coming along?", "Can we show {P} Friday?", "What's the big idea?", "Proud of this one"],
-               replies: ["Let's go bold", "Love it", "Sharpen it", "Ship it 🐘"]},
-  design:     {self: ["Kerning…", "One more round of revisions", "Is this too bold?", "Moodboard's up", "Exporting assets…", "Grid's finally working", "Type pairing time"],
-               asks: ["Thoughts on this layout?", "Too much whitespace?", "A or B?", "Can I steal your {P} palette?"],
-               replies: ["Looks clean!", "Go bolder", "A, obviously", "Nudge it 2px"]},
-  uiux:       {self: ["Wireframes v3…", "Fixing auto-layout", "Prototype's linked", "This flow's a maze", "Handoff doc's ready", "Dark mode too?"],
-               asks: ["Does this flow make sense?", "Can you test this prototype?", "Spacing look off?", "Mobile or web first?"],
-               replies: ["Add a back button", "Make it one tap", "Ship the flow", "Needs empty states"]},
-  verbal:     {self: ["Naming round 3…", "What's the one-liner?", "Is it 'we' or 'you'?", "The narrative's clicking", "Too many adjectives", "Rewriting the headline"],
-               asks: ["Name ideas for {P}?", "Headline or tagline?", "Does this sound on-brand?", "Read this out loud?"],
-               replies: ["Shorter!", "Say it simpler", "Ooh, that one", "Kill the adjective"]},
-  dev:        {self: ["Pushing to staging", "Works on my machine 🤷", "Webflow's being moody", "Fixed that bug!", "Clearing the cache…", "CMS is set up"],
-               asks: ["Final designs for {P}?", "Is this the latest Figma?", "Can I get the assets?", "Which breakpoint?"],
-               replies: ["On it", "Give me an hour", "Staging link soon", "That's a CSS thing"]},
-  pm:         {self: ["Updating the tracker", "Client call at 4", "Timeline's tight", "Sending the recap", "Feedback's in"],
-               asks: ["Any updates?", "Status on {P}?", "Can we share by EOD?", "Client wants {P} Friday", "Update in the thread?"],
-               replies: ["Adding it to the tracker", "I'll tell the client", "Let's push to Monday", "Noted ✅"]},
-  marketing:  {self: ["Post goes live at 6", "Caption ideas?", "Reel's rendering…", "Engagement's up 📈", "Content calendar's full"],
-               asks: ["Can I get the post?", "Any BTS for socials?", "Photo for the post?", "Can you fill this form?", "Carousel by today?"],
-               replies: ["Posting it now", "Tag us!", "Perfect for a reel", "Adding it to the calendar"]},
-  research:   {self: ["Reading the research…", "Found the insight!", "Competitor audit done", "Survey's out", "Crunching numbers"],
-               asks: ["Seen this data?", "Who's the audience for {P}?", "Can I interview you?"],
-               replies: ["Interesting…", "Source?", "That's the insight", "Let's validate that"]},
-  ops:        {self: ["Payroll day 😅", "Updating the HR sheet", "Checking leave balances…"],
-               asks: ["Filled the form?", "Form by EOD, please!", "Bank details?", "Did you sign that?", "Reimbursements in?"],
-               replies: ["Noted!", "Send me the form", "Payroll's on it"]},
+  leadership: {self: ["Big week, team 🐘", "Sales call in 10", "Proposal's out", "What's the insight here?", "Let's go bold", "Pipeline's looking good", "Who wants to pitch?", "Positioning first, always", "Another lead came in", "Pricing call at 5", "Case study, anyone?", "Board deck time", "Let's win this one", "Client dinner tonight"],
+               asks: ["How's {P} coming along?", "Can we show {P} Friday?", "What's the big idea?", "Proud of this one", "Who's leading {P}?", "Can you join the pitch?", "What's our angle?", "Is this our best work?"],
+               replies: ["Let's go bold", "Love it", "Sharpen it", "Ship it 🐘", "Make it braver", "That's the one", "Tell the client", "Good, now better"]},
+  design:     {self: ["Kerning…", "One more round of revisions", "Is this too bold?", "Moodboard's up", "Exporting assets…", "Grid's finally working", "Type pairing time", "Colour's almost right", "Mockups rendering…", "Swapping the hero image", "Too many fonts?", "Nudging, nudging…", "Final_final_v3.fig", "Icons need love", "Packing the brand kit"],
+               asks: ["Thoughts on this layout?", "Too much whitespace?", "A or B?", "Can I steal your {P} palette?", "Which red?", "Is the logo too small?", "Serif or sans here?", "Does this feel premium?"],
+               replies: ["Looks clean!", "Go bolder", "A, obviously", "Nudge it 2px", "More contrast", "Love the type", "Kill the gradient", "Chef's kiss 🤌"]},
+  uiux:       {self: ["Wireframes v3…", "Fixing auto-layout", "Prototype's linked", "This flow's a maze", "Handoff doc's ready", "Dark mode too?", "Naming my layers 🙃", "Empty states, done", "User test at 3", "Variants everywhere", "Tokens updated", "Tap targets check", "Microinteractions time", "Onboarding, take two"],
+               asks: ["Does this flow make sense?", "Can you test this prototype?", "Spacing look off?", "Mobile or web first?", "Is this button clear?", "Too many steps?", "Which nav feels right?", "Can you break this flow?"],
+               replies: ["Add a back button", "Make it one tap", "Ship the flow", "Needs empty states", "Cut a step", "Bigger tap area", "Label it clearly", "Test it with a user"]},
+  verbal:     {self: ["Naming round 3…", "What's the one-liner?", "Is it 'we' or 'you'?", "The narrative's clicking", "Too many adjectives", "Rewriting the headline", "Manifesto draft two", "Finding the brand voice", "Thesaurus open 📖", "Hmm, 'bold' again?", "Story arc sorted", "Cutting 40 words", "Messaging matrix done"],
+               asks: ["Name ideas for {P}?", "Headline or tagline?", "Does this sound on-brand?", "Read this out loud?", "Which verb works?", "Too clever or just right?", "Does this line land?"],
+               replies: ["Shorter!", "Say it simpler", "Ooh, that one", "Kill the adjective", "Read it again", "That's a keeper", "Needs a verb", "Sounds like us"]},
+  dev:        {self: ["Pushing to staging", "Works on my machine 🤷", "Webflow's being moody", "Fixed that bug!", "Clearing the cache…", "CMS is set up", "Lighthouse: 98 🟢", "Refactoring…", "Who broke the build?", "Adding the animations", "Forms are wired up", "Mobile nav, fixed", "Page speed hunting", "Merging, fingers crossed"],
+               asks: ["Final designs for {P}?", "Is this the latest Figma?", "Can I get the assets?", "Which breakpoint?", "SVG or PNG?", "Where's the copy?", "Hover state for this?", "Is this font licensed?"],
+               replies: ["On it", "Give me an hour", "Staging link soon", "That's a CSS thing", "Doable", "Pushing tonight", "Easy fix", "Let me check the console"]},
+  pm:         {self: ["Updating the tracker", "Client call at 4", "Timeline's tight", "Sending the recap", "Feedback's in", "Scope check…", "Moving the review", "Invoice reminder sent", "Sprint board updated", "Agenda for tomorrow", "Client said yes!", "Rescheduling, again"],
+               asks: ["Any updates?", "Status on {P}?", "Can we share by EOD?", "Client wants {P} Friday", "Update in the thread?", "ETA on {P}?", "Blockers today?", "Can you join the 4pm?"],
+               replies: ["Adding it to the tracker", "I'll tell the client", "Let's push to Monday", "Noted ✅", "Perfect, thanks", "Logging it", "Client will love it", "Let's lock it"]},
+  marketing:  {self: ["Post goes live at 6", "Caption ideas?", "Reel's rendering…", "Engagement's up 📈", "Content calendar's full", "Newsletter drafted", "Scheduling the carousel", "Trend alert 🚨", "Analytics look spicy", "Shooting BTS today", "Hashtag research…", "Story poll is up"],
+               asks: ["Can I get the post?", "Any BTS for socials?", "Photo for the post?", "Can you fill this form?", "Carousel by today?", "Quote for the post?", "Can I film this?", "Case study pics?"],
+               replies: ["Posting it now", "Tag us!", "Perfect for a reel", "Adding it to the calendar", "That'll do numbers", "Screenshot that!", "Story-worthy", "Saving that for Friday"]},
+  research:   {self: ["Reading the research…", "Found the insight!", "Competitor audit done", "Survey's out", "Crunching numbers", "Tagging interview notes", "Affinity map time", "Desk research, deep", "Trend deck drafting", "Sample size looks good"],
+               asks: ["Seen this data?", "Who's the audience for {P}?", "Can I interview you?", "What would you pay for it?", "Which competitor worries you?", "Gut feel on this?"],
+               replies: ["Interesting…", "Source?", "That's the insight", "Let's validate that", "Noting that down", "Pattern spotted", "Need more data", "Great quote"]},
+  ops:        {self: ["Payroll day 😅", "Updating the HR sheet", "Checking leave balances…", "Vendor call in 5", "Laptops ordered", "Policy doc updated", "Onboarding kit ready", "Invoices sorted", "Chasing signatures"],
+               asks: ["Filled the form?", "Form by EOD, please!", "Bank details?", "Did you sign that?", "Reimbursements in?", "Leave dates, please?", "Address proof?"],
+               replies: ["Noted!", "Send me the form", "Payroll's on it", "Sorted ✅", "I'll update the sheet", "Thanks, logged"]},
 };
 // Who's who, as Gokul described the team, with 20 fictional lines each. project = default when Slack shows none.
 const PROFILE = {
@@ -2161,8 +2176,8 @@ const PROFILE = {
   "U0A7L4VS1PS": {"dept": "verbal", "quirks": ["Copy, round 2", "The narrative's almost there", "One more headline…", "Word count: perfect", "Tone of voice doc", "Oxford comma, yes", "Microcopy matters", "This button says 'Go'", "Brand story, chapter 1", "Punchier, shorter", "Headlines: 20 options", "Copy deck shared", "Is it too clever?", "Voice: warm, not cute", "Reading it aloud", "Synonym hunt 🔍", "Taglines on sticky notes", "Proofreading pass", "Every word earns its place", "The narrative clicks now ✨"]},   // Adithi
 };
 const ASKERS = new Set(["pm", "marketing", "ops"]);   // departments whose whole thing is asking people for stuff
-const REACTIONS = ["haha", "True!", "😂", "Right?!", "Same", "Okay okay", "Tell me more", "Sounds good", "🙌", "Hmm…", "Nice!", "Ha, classic", "No way!", "Love that", "Fair point", "Honestly, same", "Wait, really?", "I'm dead 💀", "Big mood", "You're not wrong"];
-const QUESTION_REPLIES = ["Almost!", "Yes, sending now", "Not yet 😅", "In an hour?", "Done ✅", "After lunch?", "Yes!!", "Working on it", "Give me 10", "Just finishing up", "Yep, all set", "Hmm, let me check", "Tomorrow morning?", "Sure thing", "Ask me at 4 😅", "It's in the folder"];
+const REACTIONS = ["haha", "True!", "😂", "Right?!", "Same", "Okay okay", "Tell me more", "Sounds good", "🙌", "Hmm…", "Nice!", "Ha, classic", "No way!", "Love that", "Fair point", "Honestly, same", "Wait, really?", "I'm dead 💀", "Big mood", "You're not wrong", "Stop it 😂", "Facts", "Oh no 😅", "Hahaha yes", "Mood", "That's wild", "Can't argue", "Relatable", "Say less", "Wow, okay", "I felt that", "Noted 😄"];
+const QUESTION_REPLIES = ["Almost!", "Yes, sending now", "Not yet 😅", "In an hour?", "Done ✅", "After lunch?", "Yes!!", "Working on it", "Give me 10", "Just finishing up", "Yep, all set", "Hmm, let me check", "Tomorrow morning?", "Sure thing", "Ask me at 4 😅", "It's in the folder", "Let me look", "Good question 🤔", "Probably yes", "Depends…", "Absolutely", "Not sure yet", "Sharing in 5", "Check the thread", "Maybe Monday?", "On my list", "Yep!", "Let's discuss"];
 const shortName = s => (s.length > 14 ? s.slice(0, 13) + "…" : s);
 const firstName = p => p.name.split(" ")[0];
 function deptOf(p){
@@ -2189,11 +2204,11 @@ function sigLines(p){
 }
 function timeLines(){
   const h = simHour(), day = new Date(Date.now() + 19800000).getUTCDay(), L = [];
-  if (h < 10.5) L.push("Morning!", "Chai first ☕", "Traffic was mad 😩", "Cadence in 5?");
-  else if (h < 12.5) L.push("Chai break?", "Coffee?", "Cadence went long 😅");
-  else if (h < 14.5) L.push("Lunch plans?", "What's for lunch?", "Food's here! 🍱", "So full 😴");
-  else if (h < 17) L.push("Post-lunch slump…", "Chai at 4?", "Need a biscuit 🍪");
-  else L.push("Heading out?", "Last push!", "One more render…", "Leaving in 10");
+  if (h < 10.5) L.push("Morning!", "Chai first ☕", "Traffic was mad 😩", "Cadence in 5?", "Good morning, team", "Filter coffee, stat", "Idli for breakfast 😋", "Who's in today?", "Inbox zero? Nope", "Plan for the day…", "Early bird today 🐦");
+  else if (h < 12.5) L.push("Chai break?", "Coffee?", "Cadence went long 😅", "Mid-morning snack?", "Brain's warmed up", "Focus hour ⏳", "Biscuit o'clock", "Standup notes up", "Already 11?!", "Quick stretch 🙆");
+  else if (h < 14.5) L.push("Lunch plans?", "What's for lunch?", "Food's here! 🍱", "So full 😴", "Biryani or meals?", "Curd rice kind of day", "Lunch walk?", "Dabba time 🍱", "Payasam, anyone?", "Food coma incoming");
+  else if (h < 17) L.push("Post-lunch slump…", "Chai at 4?", "Need a biscuit 🍪", "Sukku coffee?", "Energy dip 😴", "Second wind!", "Sunset soon 🌅", "Samosa run?", "Afternoon review", "Deep work o'clock");
+  else L.push("Heading out?", "Last push!", "One more render…", "Leaving in 10", "Sunset walk? 🌅", "Wrapping up", "Tomorrow's list, done", "Beat the traffic?", "Evening chai ☕", "Logging off soon", "Good day, team 🐘");
   if (day === 5) L.push("Weekend plans?", "TGIF 🎉");
   if (day === 1) L.push("Monday, huh…");
   return L;
@@ -2228,6 +2243,7 @@ function newsLines(listener){
 function sharedProject(a, b){ const c = (a.projects || []).find(x => (b.projects || []).includes(x)); return c ? prettyChannel(c) : null; }
 function weighted(list){
   const key = x => (x && x.text !== undefined ? x.text : x);
+  const mine = list.filter(([x]) => !saidByMe(key(x))); if (mine.length) list = mine;
   const fresh = list.filter(([x]) => !recentLines.includes(key(x)));
   if (fresh.length) list = fresh;
   else { const oldest = [...list].sort((m, n) => recentLines.lastIndexOf(key(m[0])) - recentLines.lastIndexOf(key(n[0]))); return oldest[0] ? oldest[0][0] : null; }
@@ -2235,7 +2251,11 @@ function weighted(list){
   let r = Math.random() * total; for (const [t, w] of list){ r -= w; if (r <= 0) return t; } return list[list.length - 1][0];
 }
 function fillP(line, other){ const P = projectOf(other); return line.includes("{P}") ? (P ? line.replace("{P}", shortName(P)) : null) : line; }
-function opener(a, b, kind){
+const PLACE_LINES = {
+  garden: ["Pond's got new lilies", "Neem shade is elite 🌳", "Kolam's new today", "Birds are loud 🐦", "Smell the jasmine?", "Fresh-air meeting 🌿", "Look, a butterfly 🦋", "Garden > meeting room"],
+  beach: ["Water's calm today 🌊", "Sunset in 20?", "Crab spotted 🦀", "Boat's back out ⛵", "Sea breeze > AC", "Walk and talk?", "Tide's coming in", "Shoes off, ideas on", "Salt air, clear head"],
+};
+function opener(a, b, kind, place){
   if (kind === "afterCall"){
     const P = projectOf(a) ? shortName(projectOf(a)) : null;
     return {text: pickFresh(P ? [`${P} call done ✅`, `${P} went well!`, `Notes from the ${P} call…`, "Just got off the call", "Few changes on the deck…"] : ["Just got off the call", "That went well", "Few changes…", "Phew 😮‍💨"]), type: "afterCall"};
@@ -2248,6 +2268,7 @@ function opener(a, b, kind){
   timeLines().forEach(t => add(t, 1.2));
   sigLines(a).forEach(t => add(t, 2.5, "sig"));
   if (b.statusText && /priority|focus|deadline|heads down/i.test(b.statusText)) add("Don't let me distract you 😅", 4);
+  if (place && PLACE_LINES[place]) PLACE_LINES[place].forEach(t => add(t, 4, "place"));
   return weighted(c) || {text: pickFresh(REACTIONS), type: "chat"};
 }
 function reply(b, a, prev, kind){
@@ -2260,15 +2281,16 @@ function reply(b, a, prev, kind){
     const r = deptLines(b, "replies"); return r.length && Math.random() < 0.7 ? pickFresh(r) : pickFresh(QUESTION_REPLIES);
   }
   if (prev.type === "news" && celebOf(b) && /happy|treat|become-versary|years|speech|birthday/i.test(t)) return pickFresh(THANKS);
-  if (prev.type === "news") return pickFresh(["So good right?", "Well deserved 🙌", "Team effort!", "🐘🐘"]);
+  if (prev.type === "news") return pickFresh(["So good right?", "Well deserved 🙌", "Team effort!", "🐘🐘", "Big one!", "Proud moment", "Loved it", "Saw it, so cool"]);
+  if (prev.type === "place") return pickFresh(["Right? Love it out here", "Needed this", "Five more minutes 😌", "Best part of the day", "Let's do this daily", "Office could never", "So calm", "Take a photo!"]);
   if (/\?\s*\S*$/.test(t)){
-    if (/lunch|chai|coffee|biscuit|tea|food|biryani/i.test(t)) return pickFresh(["Yes! 5 mins", "Already had 😅", "Always ☕", "Count me in"]);
-    if (/weekend/i.test(t)) return pickFresh(["Sleep 😴", "Beach maybe", "Nothing, finally"]);
-    if (/heading out|leaving/i.test(t)) return pickFresh(["10 more mins", "One last thing…", "Yes, finally!"]);
+    if (/lunch|chai|coffee|biscuit|tea|food|biryani|snack/i.test(t)) return pickFresh(["Yes! 5 mins", "Already had 😅", "Always ☕", "Count me in", "Filter coffee?", "Only if there's vada", "After this call", "Race you to the pantry", "Ordering biryani 🍛", "Yes, I'm starving"]);
+    if (/weekend/i.test(t)) return pickFresh(["Sleep 😴", "Beach maybe", "Nothing, finally", "Family stuff", "Movie marathon 🎬", "Temple visit", "Road trip!", "Netflix and naps"]);
+    if (/heading out|leaving/i.test(t)) return pickFresh(["10 more mins", "One last thing…", "Yes, finally!", "Right after this", "Already packed 🎒", "Traffic first 😩"]);
     return pickFresh(QUESTION_REPLIES);
   }
   if (prev.type === "news") return pickFresh(["So good right?", "Well deserved 🙌", "Team effort!", "🐘🐘"]);
-  if (prev.type === "sig") return pickFresh(["Classic you 😂", "Of course 😄", "Haha, always", "Knew it", "Never change 😄", "That's so you", "Iconic", "Every single day", "Called it", "Why am I not surprised", "Legend", "Respect 🫡"]);
+  if (prev.type === "sig") return pickFresh(["Classic you 😂", "Of course 😄", "Haha, always", "Knew it", "Never change 😄", "That's so you", "Iconic", "Every single day", "Called it", "Why am I not surprised", "Legend", "Respect 🫡", "Peak you", "Signature move", "Here we go again 😄", "Wouldn't expect less", "Never gets old", "Ha, textbook", "Brand consistent 😂", "You and your thing", "Love this for you", "Same as always 😄"]);
   const own = sigLines(b); if (own.length && Math.random() < 0.3) return pickFresh(own);
   return pickFresh(REACTIONS);
 }
@@ -2279,13 +2301,14 @@ function followUp(speaker){
   if (r < 0.72) return pickFresh(timeLines());
   return pickFresh(REACTIONS);
 }
+const PROJECT_LINES = ["Deep in {P} today", "Back on {P}", "{P}, round two", "{P} is coming along", "Tweaking {P}…", "{P} review soon", "{P} is looking good", "Heads down on {P}", "{P} files, again", "Nearly there with {P}"];
 function deskLine(p){
   const r = Math.random(), self = deptLines(p, "self"), sg = sigLines(p), P = projectOf(p);
-  if (P && r < 0.35) return P;
-  if (sg.length && r < 0.62) return pickFresh(sg);
-  if (self.length && r < 0.85) return pickFresh(self);
-  if (r < 0.93) return pickFresh(timeLines());
-  return null;
+  if (sg.length && r < 0.55) return pickFresh(sg);                                   // their own lines
+  if (self.length && r < 0.75) return pickFresh(self);                               // their role
+  if (P && r < 0.85) return pickFresh(PROJECT_LINES.map(l => l.replace("{P}", shortName(P))));   // what they're working on
+  if (r < 0.95) return pickFresh(timeLines());                                       // time of day
+  return sg.length ? pickFresh(sg) : null;
 }
 function splitLines(text){
   return String(text || "").replace(/<@[UW][A-Z0-9]+(?:\|([^>]+))?>/g, "$1").replace(/<https?:[^>]+>/g, "").replace(/<!(channel|here|everyone)>/g, "")

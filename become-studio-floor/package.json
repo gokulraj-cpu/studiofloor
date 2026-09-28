@@ -1,8 +1,0 @@
-{
-  "name": "become-studio-floor",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "description": "Become Studio Floor: a live pixel office driven by Brisk check-ins and Slack.",
-  "engines": { "node": ">=18" }
-}

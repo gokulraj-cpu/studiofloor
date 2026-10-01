@@ -300,6 +300,8 @@
   .dword small{display:block;font-family:var(--body);font-size:12px;letter-spacing:0;color:var(--muted)}
   .dtimer{font-family:var(--display);font-size:18px;color:#ffcf4a;min-width:52px;text-align:right;font-variant-numeric:tabular-nums}
   .dtimer.low{color:#ef6b6b}
+  #dLeave{background:#ef6b6b;color:#2e2530;box-shadow:0 0 0 2px #0b0d15}
+  #dLeave:hover{background:#ff8a8a}
   .dtop button,.dtools button,.dchat button,.doverlay button{background:var(--panel);box-shadow:0 0 0 2px var(--line);border:0;padding:6px 10px;font-family:var(--display);font-size:11px;color:var(--text)}
   .dtop button:hover,.dtools button:hover,.dchat button:hover,.doverlay button:hover{background:var(--panel-2)}
   .dmain{flex:1;min-height:0;display:grid;grid-template-columns:200px 1fr 260px;gap:12px;padding:12px}
@@ -544,6 +546,7 @@
       <span class="dround" id="dRound"></span>
       <span class="dword" id="dWord" aria-live="polite"></span>
       <span class="dtimer" id="dTimer"></span>
+      <button id="dLeave" hidden aria-label="Leave the game and walk back to your desk">LEAVE GAME ↩</button>
       <button id="dClose" aria-label="Close the arcade">CLOSE ✕</button>
     </div>
     <div class="dmain">
@@ -4931,7 +4934,7 @@ const DOODLE = (() => {
     input.disabled = !joined || (S.phase === "drawing" && S.drawer === me);
     input.placeholder = !joined ? "Join to chat" : S.phase === "drawing" ? (S.drawer === me ? "You’re drawing!" : S.guessed.includes(me) ? "Chat with the others who got it" : "Type your guess…") : "Say something…";
   }
-  function render(){ if (box.hidden) return; renderTop(); renderPlayers(); renderOverlay(); renderTools(); }
+  function render(){ el("dLeave").hidden = !joined; if (box.hidden) return; renderTop(); renderPlayers(); renderOverlay(); renderTools(); }
   setInterval(() => { hostTick(); drawerTick(); if (!box.hidden) renderTop(); }, 250);
 
   el("dForm").addEventListener("submit", e => {
@@ -4953,6 +4956,13 @@ const DOODLE = (() => {
   }
   function close(){ box.hidden = true; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
   el("dClose").onclick = close;
+  // Leave the room: your pixel twin walks from the arcade back to your desk.
+  async function leaveToDesk(){
+    const who = me; await leave(); playing.delete(who); assignSeats(false);
+    sys("You left the game."); render(); close();
+    if (who && byId[who]) focusOn(byId[who]);
+  }
+  el("dLeave").onclick = leaveToDesk;
   box.addEventListener("click", e => { if (e.target === box) close(); });
   document.addEventListener("keydown", e => { if (!box.hidden && e.key === "Escape") close(); });
   addEventListener("pagehide", () => { leave(); });
